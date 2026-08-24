@@ -39,6 +39,7 @@ Optional: `RESEND_API_KEY`, `TWILIO_*`, `S3_*`, `PLATFORM_ADMIN_API_KEY`
 
 ```bash
 npm run db:up          # start local Postgres via Docker
+# If 5432 is occupied locally, set POSTGRES_PORT=5433 in .env before starting Docker.
 npx prisma generate    # regenerate Prisma client
 npm run db:migrate     # run pending migrations
 npm run db:seed        # seed initial data
