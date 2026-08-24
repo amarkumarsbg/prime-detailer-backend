@@ -4,6 +4,21 @@ import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { env } from "../config/env.js";
 import { avatarExtensionForMime } from "../lib/avatar-mimes.js";
 
+function isS3SigningOrAuthError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const msg = "message" in err ? String((err as { message?: unknown }).message ?? "") : "";
+  const code = "name" in err ? String((err as { name?: unknown }).name ?? "") : "";
+  return (
+    msg.includes("The request signature we calculated does not match") ||
+    msg.includes("SignatureDoesNotMatch") ||
+    msg.includes("InvalidAccessKeyId") ||
+    msg.includes("AuthorizationHeaderMalformed") ||
+    code === "SignatureDoesNotMatch" ||
+    code === "InvalidAccessKeyId" ||
+    code === "AuthorizationHeaderMalformed"
+  );
+}
+
 export function isObjectStorageConfigured(): boolean {
   return Boolean(
     env.S3_BUCKET &&
@@ -65,7 +80,11 @@ export async function persistAvatarFile(opts: {
   const filename = `${opts.userId}-${Date.now()}${ext}`;
   const key = `avatars/${filename}`;
   if (isObjectStorageConfigured()) {
-    return putPublicObject(key, opts.buffer, opts.mimeType);
+    try {
+      return await putPublicObject(key, opts.buffer, opts.mimeType);
+    } catch (err) {
+      if (!isS3SigningOrAuthError(err)) throw err;
+    }
   }
   return writeLocalUpload(["avatars"], filename, opts.buffer);
 }
@@ -88,7 +107,11 @@ export async function persistJobInspectionPhoto(opts: {
   const segments = ["job-cards", safeJobId, folder];
   const objectKey = `${segments.join("/")}/${filename}`;
   if (isObjectStorageConfigured()) {
-    return putPublicObject(objectKey, opts.buffer, opts.mimeType);
+    try {
+      return await putPublicObject(objectKey, opts.buffer, opts.mimeType);
+    } catch (err) {
+      if (!isS3SigningOrAuthError(err)) throw err;
+    }
   }
   return writeLocalUpload(segments, filename, opts.buffer);
 }
@@ -106,7 +129,11 @@ export async function persistBusinessLogoFile(opts: {
   const filename = `logo-${safeBy}-${Date.now()}${ext}`;
   const key = `avatars/branding/${filename}`;
   if (isObjectStorageConfigured()) {
-    return putPublicObject(key, opts.buffer, opts.mimeType);
+    try {
+      return await putPublicObject(key, opts.buffer, opts.mimeType);
+    } catch (err) {
+      if (!isS3SigningOrAuthError(err)) throw err;
+    }
   }
   return writeLocalUpload(["avatars", "branding"], filename, opts.buffer);
 }

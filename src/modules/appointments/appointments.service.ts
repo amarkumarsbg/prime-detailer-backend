@@ -14,6 +14,8 @@ import { prisma } from "../../lib/prisma.js";
 
 type JsonRecord = Record<string, unknown>;
 
+let appointmentTableAvailable: boolean | null = null;
+
 function asRecord(value: unknown): JsonRecord | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   return value as JsonRecord;
@@ -48,76 +50,109 @@ function asNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function isMissingAppointmentTableError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const msg = "message" in err ? String((err as { message?: unknown }).message ?? "") : "";
+  return msg.includes('The table `public.Appointment` does not exist');
+}
+
+async function hasAppointmentTable(): Promise<boolean> {
+  if (appointmentTableAvailable !== null) return appointmentTableAvailable;
+  try {
+    const rows = await prisma.$queryRaw<Array<{ exists: boolean }>>`
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'Appointment'
+      ) AS "exists"
+    `;
+    appointmentTableAvailable = Boolean(rows[0]?.exists);
+  } catch {
+    appointmentTableAvailable = false;
+  }
+  return appointmentTableAvailable;
+}
+
 async function upsertAppointmentRow(
   organizationId: string,
   entityId: string,
   payload: unknown
 ): Promise<void> {
+  if (!(await hasAppointmentTable())) return;
+
   const doc = asRecord(payload);
   if (!doc) return;
 
-  await prisma.appointment.upsert({
-    where: { id: entityId },
-    create: {
-      id: entityId,
-      organizationId,
-      bookingId: asString(doc.bookingId),
-      appointmentNumber: asString(doc.appointmentNumber),
-      kind: asString(doc.kind),
-      branchId: asString(doc.branchId),
-      customerId: asString(doc.customerId),
-      customerName: asString(doc.customerName),
-      customerPhone: asString(doc.customerPhone),
-      vehicleId: asString(doc.vehicleId),
-      vehicleRegNumber: asString(doc.vehicleRegNumber),
-      vehicleMakeModel: asString(doc.vehicleMakeModel),
-      serviceType: asString(doc.serviceType),
-      mechanicId: asString(doc.mechanicId),
-      mechanicName: asString(doc.mechanicName),
-      date: asString(doc.date),
-      time: asString(doc.time),
-      status: asString(doc.status),
-      jobCardId: asString(doc.jobCardId),
-      notes: asString(doc.notes),
-      whatsappSent: asBoolean(doc.whatsappSent),
-      reminderSent: asBoolean(doc.reminderSent),
-      priceGrandTotal: asNumber(doc.priceGrandTotal),
-      advancePaid: asNumber(doc.advancePaid),
-      customerAddress: asString(doc.customerAddress),
-      vehiclePickupRequired: asBoolean(doc.vehiclePickupRequired),
-      vehiclePickupStatus: asString(doc.vehiclePickupStatus),
-      payload: doc as Prisma.InputJsonValue,
-    },
-    update: {
-      organizationId,
-      bookingId: asString(doc.bookingId),
-      appointmentNumber: asString(doc.appointmentNumber),
-      kind: asString(doc.kind),
-      branchId: asString(doc.branchId),
-      customerId: asString(doc.customerId),
-      customerName: asString(doc.customerName),
-      customerPhone: asString(doc.customerPhone),
-      vehicleId: asString(doc.vehicleId),
-      vehicleRegNumber: asString(doc.vehicleRegNumber),
-      vehicleMakeModel: asString(doc.vehicleMakeModel),
-      serviceType: asString(doc.serviceType),
-      mechanicId: asString(doc.mechanicId),
-      mechanicName: asString(doc.mechanicName),
-      date: asString(doc.date),
-      time: asString(doc.time),
-      status: asString(doc.status),
-      jobCardId: asString(doc.jobCardId),
-      notes: asString(doc.notes),
-      whatsappSent: asBoolean(doc.whatsappSent),
-      reminderSent: asBoolean(doc.reminderSent),
-      priceGrandTotal: asNumber(doc.priceGrandTotal),
-      advancePaid: asNumber(doc.advancePaid),
-      customerAddress: asString(doc.customerAddress),
-      vehiclePickupRequired: asBoolean(doc.vehiclePickupRequired),
-      vehiclePickupStatus: asString(doc.vehiclePickupStatus),
-      payload: doc as Prisma.InputJsonValue,
-    },
-  });
+  try {
+    await prisma.appointment.upsert({
+      where: { id: entityId },
+      create: {
+        id: entityId,
+        organizationId,
+        bookingId: asString(doc.bookingId),
+        appointmentNumber: asString(doc.appointmentNumber),
+        kind: asString(doc.kind),
+        branchId: asString(doc.branchId),
+        customerId: asString(doc.customerId),
+        customerName: asString(doc.customerName),
+        customerPhone: asString(doc.customerPhone),
+        vehicleId: asString(doc.vehicleId),
+        vehicleRegNumber: asString(doc.vehicleRegNumber),
+        vehicleMakeModel: asString(doc.vehicleMakeModel),
+        serviceType: asString(doc.serviceType),
+        mechanicId: asString(doc.mechanicId),
+        mechanicName: asString(doc.mechanicName),
+        date: asString(doc.date),
+        time: asString(doc.time),
+        status: asString(doc.status),
+        jobCardId: asString(doc.jobCardId),
+        notes: asString(doc.notes),
+        whatsappSent: asBoolean(doc.whatsappSent),
+        reminderSent: asBoolean(doc.reminderSent),
+        priceGrandTotal: asNumber(doc.priceGrandTotal),
+        advancePaid: asNumber(doc.advancePaid),
+        customerAddress: asString(doc.customerAddress),
+        vehiclePickupRequired: asBoolean(doc.vehiclePickupRequired),
+        vehiclePickupStatus: asString(doc.vehiclePickupStatus),
+        payload: doc as Prisma.InputJsonValue,
+      },
+      update: {
+        organizationId,
+        bookingId: asString(doc.bookingId),
+        appointmentNumber: asString(doc.appointmentNumber),
+        kind: asString(doc.kind),
+        branchId: asString(doc.branchId),
+        customerId: asString(doc.customerId),
+        customerName: asString(doc.customerName),
+        customerPhone: asString(doc.customerPhone),
+        vehicleId: asString(doc.vehicleId),
+        vehicleRegNumber: asString(doc.vehicleRegNumber),
+        vehicleMakeModel: asString(doc.vehicleMakeModel),
+        serviceType: asString(doc.serviceType),
+        mechanicId: asString(doc.mechanicId),
+        mechanicName: asString(doc.mechanicName),
+        date: asString(doc.date),
+        time: asString(doc.time),
+        status: asString(doc.status),
+        jobCardId: asString(doc.jobCardId),
+        notes: asString(doc.notes),
+        whatsappSent: asBoolean(doc.whatsappSent),
+        reminderSent: asBoolean(doc.reminderSent),
+        priceGrandTotal: asNumber(doc.priceGrandTotal),
+        advancePaid: asNumber(doc.advancePaid),
+        customerAddress: asString(doc.customerAddress),
+        vehiclePickupRequired: asBoolean(doc.vehiclePickupRequired),
+        vehiclePickupStatus: asString(doc.vehiclePickupStatus),
+        payload: doc as Prisma.InputJsonValue,
+      },
+    });
+  } catch (err) {
+    if (isMissingAppointmentTableError(err)) {
+      appointmentTableAvailable = false;
+      return;
+    }
+    throw err;
+  }
 }
 
 export async function listAppointments(
@@ -148,7 +183,14 @@ export async function deleteAppointment(
 ): Promise<boolean> {
   const deleted = await deleteCollectionItem("appointments", entityId, organizationId);
   if (!deleted) return false;
-  await prisma.appointment.deleteMany({ where: { id: entityId, organizationId } });
+  if (await hasAppointmentTable()) {
+    try {
+      await prisma.appointment.deleteMany({ where: { id: entityId, organizationId } });
+    } catch (err) {
+      if (!isMissingAppointmentTableError(err)) throw err;
+      appointmentTableAvailable = false;
+    }
+  }
   return true;
 }
 

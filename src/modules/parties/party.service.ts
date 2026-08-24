@@ -37,6 +37,10 @@ type ExpenseVendorProfile = {
   panNumber?: string;
 };
 
+function normalizeVendorName(value: string | undefined | null): string {
+  return (value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
 type PartyRowWithRelations = Prisma.PartyGetPayload<{
   include: {
     shippingAddresses: true;
@@ -254,6 +258,21 @@ export async function listParties(organizationId: string): Promise<Party[]> {
   }
 
   const vendorKeys = new Set<string>();
+  const profileByNormName = new Map<string, ExpenseVendorProfile>();
+  for (const v of vendorDirectory) {
+    const raw = v.name?.trim();
+    if (!raw) continue;
+    profileByNormName.set(normalizeVendorName(raw), v);
+  }
+
+  const dbSupplierByNormVendorKey = new Map<string, Party>();
+  for (const p of dbById.values()) {
+    if (p.kind !== "supplier") continue;
+    const key = normalizeVendorName(p.vendorKey);
+    if (!key) continue;
+    if (!dbSupplierByNormVendorKey.has(key)) dbSupplierByNormVendorKey.set(key, p);
+  }
+
   for (const v of vendorDirectory) {
     const name = v.name?.trim();
     if (name) vendorKeys.add(name);
@@ -264,13 +283,24 @@ export async function listParties(organizationId: string): Promise<Party[]> {
   }
 
   for (const name of vendorKeys) {
-    const profile = vendorDirectory.find((v) => v.name.trim() === name);
+    const norm = normalizeVendorName(name);
+    const profile = profileByNormName.get(norm);
     const id = profile?.id ? `v:${profile.id}` : `v:${encodeURIComponent(name)}`;
     if (byId.has(id)) continue;
-    byId.set(id, partyFromVendor(name, profile, dbById.get(id)));
+    byId.set(id, partyFromVendor(name, profile, dbById.get(id) ?? dbSupplierByNormVendorKey.get(norm)));
   }
 
   for (const [id, party] of dbById) {
+    if (party.kind === "supplier") {
+      const norm = normalizeVendorName(party.vendorKey);
+      if (norm) {
+        const profile = profileByNormName.get(norm);
+        const canonicalId = profile?.id
+          ? `v:${profile.id}`
+          : `v:${encodeURIComponent(party.vendorKey ?? party.name)}`;
+        if (byId.has(canonicalId)) continue;
+      }
+    }
     if (byId.has(id)) continue;
     if (party.customerId && byId.has(customerPartyId(party.customerId))) continue;
     byId.set(id, party);
