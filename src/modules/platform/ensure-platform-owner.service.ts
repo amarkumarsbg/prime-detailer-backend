@@ -16,11 +16,27 @@ export type EnsurePlatformOwnerResult = {
   action: "created" | "updated" | "skipped";
 };
 
+function isTransientPrismaConnectionError(err: unknown): boolean {
+  if (!err) return false;
+  const msg = err instanceof Error ? err.message : String(err);
+  const m = msg.toLowerCase();
+  return (
+    m.includes("error in postgresql connection") ||
+    m.includes("kind: closed") ||
+    m.includes("can't reach database server") ||
+    m.includes("connection terminated")
+  );
+}
+
+async function delay(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
  * Upsert YOUR vendor PLATFORM_OWNER login from env.
  * Does not wipe customer data.
  */
-export async function ensurePlatformOwner(opts?: {
+async function ensurePlatformOwnerOnce(opts?: {
   /** When false, existing user’s password is left unchanged. Default true. */
   syncPassword?: boolean;
 }): Promise<EnsurePlatformOwnerResult> {
@@ -112,4 +128,17 @@ export async function ensurePlatformOwner(opts?: {
   });
 
   return { email, action: byId || existing ? "updated" : "updated" };
+}
+
+export async function ensurePlatformOwner(opts?: {
+  /** When false, existing user’s password is left unchanged. Default true. */
+  syncPassword?: boolean;
+}): Promise<EnsurePlatformOwnerResult> {
+  try {
+    return await ensurePlatformOwnerOnce(opts);
+  } catch (err) {
+    if (!isTransientPrismaConnectionError(err)) throw err;
+    await delay(800);
+    return ensurePlatformOwnerOnce(opts);
+  }
 }
