@@ -1,0 +1,469 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PLATFORM_OWNER
+  SUPER_ADMIN
+  ADMIN
+  BRANCH_MANAGER
+  MANAGER
+  SUPERVISOR
+  RECEPTIONIST
+  MECHANIC
+}
+
+enum PlanCode {
+  STARTER
+  GROWTH
+  BUSINESS
+  ENTERPRISE
+  CUSTOM
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  EXPIRED
+  CANCELLED
+}
+
+enum SubscriptionPaymentStatus {
+  PAID
+  PENDING
+  PROCESSING
+  FAILED
+}
+
+model Organization {
+  id                String                    @id
+  name              String
+  slug              String?                   @unique
+  /**
+   * SaaS account on/off — inactive orgs cannot use the studio app
+   */
+  isActive          Boolean                   @default(true)
+  activatedAt       DateTime?
+  deactivatedAt     DateTime?
+  /**
+   * PLATFORM_OWNER only — never exposed to studio APIs
+   */
+  internalNotes     String?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  subscription      OrganizationSubscription?
+  branches          Branch[]
+  users             User[]
+  customers         Customer[]
+  vehicles          Vehicle[]
+  parties           Party[]
+  appJsonRows       AppJsonRow[]
+  platformAuditLogs PlatformAuditLog[]
+  subscriptionPayments SubscriptionPayment[]
+  subscriptionBills    SubscriptionBill[]
+}
+
+model PlatformAuditLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor          String
+  action         String
+  before         Json?
+  after          Json?
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, createdAt])
+}
+
+/** Platform-managed referral codes for subscription discounts. */
+model PlatformReferralCode {
+  id             String   @id @default(cuid())
+  code           String   @unique
+  discountAmount Float    @default(1000)
+  isActive       Boolean  @default(true)
+  createdBy      String
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model OrganizationSubscription {
+  id                  String                    @id @default(cuid())
+  organizationId      String                    @unique
+  organization        Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  planCode            PlanCode
+  planName            String
+  status              SubscriptionStatus        @default(ACTIVE)
+  /**
+   * Extensible caps; maxBranches null = unlimited
+   */
+  limits              Json
+  maxBranchesOverride Int?
+  contactUsUrl        String?
+  /**
+   * E.164 preferred, e.g. +919876543210 — used for mobile tel: dial
+   */
+  contactPhone        String?
+  upgradeUrl          String?
+  /**
+   * Term length in months: 12 / 24 / 36
+   */
+  termMonths          Int                       @default(12)
+  startsAt            DateTime?
+  /**
+   * End of paid period. Export lock when ≤30 days remain.
+   */
+  expiresAt           DateTime?
+  /**
+   * Legacy alias mirrored from expiresAt for older clients.
+   */
+  currentPeriodEnd    DateTime?
+  paymentStatus       SubscriptionPaymentStatus @default(PAID)
+  lastPaymentTxnId    String?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  payments            SubscriptionPayment[]
+  bills               SubscriptionBill[]
+}
+
+model SubscriptionPayment {
+  id             String                    @id @default(cuid())
+  organizationId String
+  organization   Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscriptionId String
+  subscription   OrganizationSubscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  amount         Float?
+  currency       String                    @default("INR")
+  status         SubscriptionPaymentStatus @default(PENDING)
+  txnReference   String?
+  method         String?
+  notes          String?
+  recordedBy     String?
+  verifiedAt     DateTime?
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  bill           SubscriptionBill?
+
+  @@index([organizationId, createdAt])
+  @@index([subscriptionId, createdAt])
+}
+
+model SubscriptionBill {
+  id             String                   @id @default(cuid())
+  organizationId String
+  organization   Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscriptionId String
+  subscription   OrganizationSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  paymentId      String?                  @unique
+  payment        SubscriptionPayment?     @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  billNumber     String
+  planName       String
+  termMonths     Int
+  /**
+   * Human label e.g. "1 year", "2 years", "3 years"
+   */
+  termLabel      String
+  periodStart    DateTime
+  periodEnd      DateTime
+  baseAmount     Float?
+  extraBranchCost Float?
+  extraUserCost  Float?
+  onboardingFee  Float?
+  referralDiscount Float?
+  gstPercent     Float?
+  gstAmount      Float?
+  totalAmount    Float?
+  amount         Float?
+  currency       String                   @default("INR")
+  createdAt      DateTime                 @default(now())
+
+  @@unique([organizationId, billNumber])
+  @@index([organizationId, createdAt])
+}
+
+enum VehicleSegment {
+  HATCHBACK
+  SEDAN
+  SUV
+  LUXURY
+  MUV
+  COMPACT_SUV
+  BIKE
+}
+
+enum FuelType {
+  PETROL
+  DIESEL
+  CNG
+  ELECTRIC
+  HYBRID
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  HALF_DAY
+}
+
+model Branch {
+  id                String       @id
+  name              String
+  address           String
+  phone             String
+  isActive          Boolean      @default(true)
+  qrCodeId          String?
+  code              String?
+  city              String?
+  state             String?
+  pincode           String?
+  email             String?
+  managerName       String?
+  managerPhone      String?
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id])
+  users             User[]
+  attendanceRecords Attendance[]
+
+  @@index([organizationId])
+}
+
+model User {
+  id                     String       @id
+  name                   String
+  email                  String       @unique
+  phone                  String
+  employeeCode           String?      @unique
+  /** Job title (distinct from UserRole). */
+  designation            String?
+  department             String?
+  /** Employment start date (yyyy-MM-dd). Separate from birthday and anniversary. */
+  joiningDate            String?
+  role                   UserRole
+  branchId               String
+  branch                 Branch       @relation(fields: [branchId], references: [id])
+  organizationId         String
+  organization           Organization @relation(fields: [organizationId], references: [id])
+  avatar                 String?
+  isActive               Boolean      @default(true)
+  emailVerified          Boolean      @default(false)
+  attendancePin          String?
+  totalJobsCompleted     Int?
+  totalIncentiveEarned   Int?
+  birthday               String?
+  anniversary            String?
+  /** Free-text HR notes (not used for auth). */
+  notes                  String?
+  passwordHash           String
+  permissions            String[]     @default([])
+  /**
+   * When true, client should force a password change before using the app (set for auto-generated onboarding passwords).
+   */
+  mustChangePassword     Boolean      @default(false)
+  /**
+   * Staff user id (`User.id`) of the admin who last set the initial/onboarding password, when tracked.
+   */
+  passwordCreatedBy      String?
+  /**
+   * Last time the login password hash was replaced (create, reset, or authenticated change).
+   */
+  passwordUpdatedAt      DateTime?
+  /**
+   * SHA-256 hex of opaque reset token; cleared after reset or superseded by new request
+   */
+  passwordResetTokenHash String?
+  passwordResetExpiresAt DateTime?
+  /**
+   * Set on successful password or OTP login
+   */
+  lastLoginAt            DateTime?
+  attendanceRecords      Attendance[]
+
+  @@index([organizationId])
+}
+
+model Customer {
+  id             String       @id
+  name           String
+  phone          String
+  email          String
+  address        String
+  referralCode   String
+  referredBy     String?
+  totalVisits    Int          @default(0)
+  rewardPoints   Int          @default(0)
+  walletBalance  Float        @default(0)
+  lastVisitDate  String?
+  isInactive     Boolean      @default(false)
+  emailVerified  Boolean      @default(false)
+  avatar         String?
+  createdAt      DateTime
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  vehicles       Vehicle[]
+
+  @@index([organizationId])
+}
+
+model Vehicle {
+  id                 String         @id
+  customerId         String
+  customer           Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerName       String
+  registrationNumber String
+  make               String
+  model              String
+  segment            VehicleSegment
+  variant            String?
+  fuelType           FuelType
+  color              String
+  year               Int
+  notes              String?
+  odometer           Int?
+  insuranceProvider  String?
+  insurancePolicyNumber String?
+  insuranceDueDate   String?
+  vinNumber          String?
+  previousOwners     Json?
+  organizationId     String
+  organization       Organization   @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+}
+
+/**
+ * Staff attendance punches (check-in / check-out). One row per shift. `date`/`checkIn`/`checkOut` are the staff member's LOCAL calendar values (yyyy-MM-dd / HH:mm) so server timezone never shifts them.
+ */
+model Attendance {
+  id              String           @id @default(cuid())
+  staffId         String
+  staff           User             @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  staffName       String
+  staffRole       UserRole
+  branchId        String
+  branch          Branch           @relation(fields: [branchId], references: [id])
+  date            String
+  checkIn         String?
+  checkOut        String?
+  durationMinutes Int?
+  status          AttendanceStatus
+  qrScanned       Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([branchId, date])
+  @@index([staffId, branchId, date])
+}
+
+enum PartyKind {
+  CUSTOMER
+  SUPPLIER
+}
+
+enum OpeningBalanceSide {
+  TO_COLLECT
+  TO_PAY
+}
+
+/**
+ * MyBillBook-style party profile (customer or supplier).
+ */
+model Party {
+  id                 String                 @id
+  kind               PartyKind
+  name               String
+  category           String?
+  mobile             String?
+  email              String?
+  gstin              String?
+  pan                String?
+  billingAddress     String?
+  shippingAddress    String?
+  openingBalance     Float                  @default(0)
+  openingBalanceSide OpeningBalanceSide?
+  creditPeriodDays   Int?
+  creditLimit        Float?
+  contactPersonName  String?
+  dateOfBirth        String?
+  customerId         String?                @unique
+  vendorKey          String?
+  organizationId     String
+  organization       Organization           @relation(fields: [organizationId], references: [id])
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  shippingAddresses  PartyShippingAddress[]
+  bankAccounts       PartyBankAccount[]
+  customFields       PartyCustomField[]
+
+  @@index([kind])
+  @@index([vendorKey])
+  @@index([organizationId])
+}
+
+model PartyShippingAddress {
+  id        String  @id @default(cuid())
+  partyId   String
+  party     Party   @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  name      String
+  street    String
+  state     String?
+  pincode   String?
+  city      String?
+  isDefault Boolean @default(false)
+
+  @@index([partyId])
+}
+
+model PartyBankAccount {
+  id                String  @id @default(cuid())
+  partyId           String
+  party             Party   @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  accountNumber     String
+  ifsc              String?
+  accountHolderName String?
+  bankName          String?
+  branchName        String?
+  upiId             String?
+
+  @@index([partyId])
+}
+
+model PartyCustomField {
+  id      String @id @default(cuid())
+  partyId String
+  party   Party  @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  key     String
+  value   String
+
+  @@index([partyId])
+}
+
+/**
+ * Soft-hide party from list (MyBillBook-style).
+ */
+model PartyHidden {
+  partyId String @id
+}
+
+/**
+ * JSON documents keyed by collection name + entity id (e.g. jobCards / jc-001).
+ * `organizationId` scopes rows per tenant (Phase 5). PK stays (collection, entityId);
+ * entity ids must remain globally unique across orgs (enforced on write).
+ */
+model AppJsonRow {
+  collection     String
+  entityId       String
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  payload        Json
+  updatedAt      DateTime     @updatedAt
+
+  @@id([collection, entityId])
+  @@index([organizationId, collection])
+}

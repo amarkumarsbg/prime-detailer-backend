@@ -1,0 +1,2765 @@
+{
+  "branches": [
+    {
+      "id": "br-main",
+      "name": "Delhi",
+      "code": "DEL",
+      "address": "Plot 12, Okhla Industrial Estate, New Delhi",
+      "city": "New Delhi",
+      "state": "DL",
+      "pincode": "110020",
+      "phone": "+918000000001",
+      "email": "delhi@prime-detailers.test",
+      "isActive": true,
+      "qrCodeId": "qr-delhi",
+      "managerName": "Delhi Branch Manager",
+      "managerPhone": "+918000000011"
+    },
+    {
+      "id": "br-002",
+      "name": "Noida",
+      "code": "NOI",
+      "address": "Sector 18, Noida",
+      "city": "Noida",
+      "state": "UP",
+      "pincode": "201301",
+      "phone": "+918000000002",
+      "email": "noida@prime-detailers.test",
+      "isActive": true,
+      "qrCodeId": "qr-noida",
+      "managerName": "Noida Branch Manager",
+      "managerPhone": "+918000000020"
+    }
+  ],
+  "staff": [
+    {
+      "id": "usr-admin",
+      "name": "Super Admin",
+      "email": "superadmin@company.com",
+      "phone": "+1000000000",
+      "role": "SUPER_ADMIN",
+      "branchId": "br-main",
+      "isActive": true,
+      "attendancePin": "1000",
+      "emailVerified": true,
+      "totalJobsCompleted": 120,
+      "totalIncentiveEarned": 45000
+    },
+    {
+      "id": "usr-002",
+      "name": "Priya Sharma",
+      "email": "priya.manager@prime-detailers.test",
+      "phone": "+918000000102",
+      "role": "BRANCH_MANAGER",
+      "branchId": "br-002",
+      "isActive": true,
+      "emailVerified": true,
+      "attendancePin": "2000"
+    },
+    {
+      "id": "usr-003",
+      "name": "Ravi Mechanic",
+      "email": "ravi.mech@prime-detailers.test",
+      "phone": "+918000000103",
+      "role": "MECHANIC",
+      "branchId": "br-main",
+      "isActive": true,
+      "emailVerified": true,
+      "attendancePin": "3000",
+      "totalJobsCompleted": 89,
+      "totalIncentiveEarned": 12000
+    },
+    {
+      "id": "usr-004",
+      "name": "Sunil Mechanic",
+      "email": "sunil.mech@prime-detailers.test",
+      "phone": "+918000000104",
+      "role": "MECHANIC",
+      "branchId": "br-main",
+      "isActive": true,
+      "attendancePin": "4000",
+      "totalJobsCompleted": 64,
+      "totalIncentiveEarned": 8900
+    },
+    {
+      "id": "usr-005",
+      "name": "Neha Reception",
+      "email": "neha.recv@prime-detailers.test",
+      "phone": "+918000000105",
+      "role": "RECEPTIONIST",
+      "branchId": "br-main",
+      "isActive": true,
+      "emailVerified": true,
+      "attendancePin": "5000"
+    }
+  ],
+  "customers": [
+    {
+      "id": "cust-001",
+      "name": "Test Customer 1",
+      "phone": "+919876543201",
+      "email": "customer1@example.test",
+      "address": "5 Residency Road, Bengaluru",
+      "referralCode": "REF20261",
+      "totalVisits": 2,
+      "rewardPoints": 100,
+      "walletBalance": 250.5,
+      "lastVisitDate": "2026-04-13",
+      "isInactive": false,
+      "emailVerified": false,
+      "createdAt": "2026-04-01T10:00:00.000Z"
+    },
+    {
+      "id": "cust-002",
+      "name": "Test Customer 2",
+      "phone": "+919876543202",
+      "email": "customer2@example.test",
+      "address": "10 Residency Road, Bengaluru",
+      "referralCode": "REF20262",
+      "totalVisits": 3,
+      "rewardPoints": 200,
+      "walletBalance": 501,
+      "lastVisitDate": "2026-04-10",
+      "isInactive": false,
+      "emailVerified": true,
+      "createdAt": "2026-04-02T10:00:00.000Z"
+    },
+    {
+      "id": "cust-003",
+      "name": "Test Customer 3",
+      "phone": "+919876543203",
+      "email": "customer3@example.test",
+      "address": "15 Residency Road, Bengaluru",
+      "referralCode": "REF20263",
+      "referredBy": "cust-001",
+      "totalVisits": 4,
+      "rewardPoints": 300,
+      "walletBalance": 751.5,
+      "lastVisitDate": "2026-04-07",
+      "isInactive": false,
+      "emailVerified": false,
+      "createdAt": "2026-04-03T10:00:00.000Z"
+    },
+    {
+      "id": "cust-004",
+      "name": "Test Customer 4",
+      "phone": "+919876543204",
+      "email": "customer4@example.test",
+      "address": "20 Residency Road, Bengaluru",
+      "referralCode": "REF20264",
+      "referredBy": "cust-001",
+      "totalVisits": 5,
+      "rewardPoints": 400,
+      "walletBalance": 1002,
+      "lastVisitDate": "2026-04-04",
+      "isInactive": false,
+      "emailVerified": true,
+      "createdAt": "2026-04-04T10:00:00.000Z"
+    },
+    {
+      "id": "cust-005",
+      "name": "Test Customer 5",
+      "phone": "+919876543205",
+      "email": "customer5@example.test",
+      "address": "25 Residency Road, Bengaluru",
+      "referralCode": "REF20265",
+      "referredBy": "cust-001",
+      "totalVisits": 6,
+      "rewardPoints": 500,
+      "walletBalance": 1252.5,
+      "lastVisitDate": "2026-04-01",
+      "isInactive": false,
+      "emailVerified": false,
+      "createdAt": "2026-04-05T10:00:00.000Z"
+    },
+    {
+      "id": "cust-hitech",
+      "name": "HI TECH CAR SPA & DETAILING",
+      "phone": "+919876543299",
+      "email": "hitech@example.test",
+      "address": "Sector 63, Noida, Uttar Pradesh",
+      "referralCode": "REFHITECH",
+      "totalVisits": 12,
+      "rewardPoints": 0,
+      "walletBalance": 0,
+      "lastVisitDate": "2025-07-16",
+      "isInactive": false,
+      "emailVerified": true,
+      "createdAt": "2025-01-10T10:00:00.000Z"
+    }
+  ],
+  "vehicles": [
+    {
+      "id": "veh-001",
+      "customerId": "cust-001",
+      "customerName": "Test Customer 1",
+      "registrationNumber": "KA01AB1001",
+      "make": "Maruti",
+      "model": "Swift",
+      "segment": "HATCHBACK",
+      "variant": "VX",
+      "fuelType": "PETROL",
+      "color": "White",
+      "year": 2020,
+      "notes": "Seed vehicle 1"
+    },
+    {
+      "id": "veh-002",
+      "customerId": "cust-002",
+      "customerName": "Test Customer 2",
+      "registrationNumber": "KA01AB1002",
+      "make": "Hyundai",
+      "model": "i20",
+      "segment": "SEDAN",
+      "variant": "VX",
+      "fuelType": "DIESEL",
+      "color": "Silver",
+      "year": 2021,
+      "notes": "Seed vehicle 2"
+    },
+    {
+      "id": "veh-003",
+      "customerId": "cust-003",
+      "customerName": "Test Customer 3",
+      "registrationNumber": "KA01AB1003",
+      "make": "Honda",
+      "model": "City",
+      "segment": "SUV",
+      "variant": "VX",
+      "fuelType": "PETROL",
+      "color": "Grey",
+      "year": 2022,
+      "notes": "Seed vehicle 3"
+    },
+    {
+      "id": "veh-004",
+      "customerId": "cust-004",
+      "customerName": "Test Customer 4",
+      "registrationNumber": "KA01AB1004",
+      "make": "Tata",
+      "model": "Nexon",
+      "segment": "COMPACT_SUV",
+      "variant": "VX",
+      "fuelType": "DIESEL",
+      "color": "Blue",
+      "year": 2023,
+      "notes": "Seed vehicle 4"
+    },
+    {
+      "id": "veh-005",
+      "customerId": "cust-005",
+      "customerName": "Test Customer 5",
+      "registrationNumber": "KA01AB1005",
+      "make": "Toyota",
+      "model": "Innova",
+      "segment": "LUXURY",
+      "variant": "VX",
+      "fuelType": "PETROL",
+      "color": "Black",
+      "year": 2024,
+      "notes": "Seed vehicle 5"
+    }
+  ],
+  "collections": {
+    "jobCards": [
+      {
+        "id": "jc-001",
+        "jobNumber": "JC-2026-101",
+        "branchId": "br-main",
+        "customerId": "cust-001",
+        "customerName": "Test Customer 1",
+        "customerPhone": "+919876543201",
+        "vehicleId": "veh-001",
+        "vehicleRegNumber": "KA01AB1001",
+        "vehicleMakeModel": "Maruti Swift",
+        "vehicleSegment": "HATCHBACK",
+        "mechanicId": "usr-003",
+        "mechanicName": "Ravi Mechanic",
+        "status": "RECEIVED",
+        "reportedIssues": "Minor scratches on bumper",
+        "odometerReading": 12500,
+        "expectedDelivery": "2026-04-17T18:00:00.000Z",
+        "services": [
+          {
+            "id": "si-jc-001-1",
+            "jobCardId": "jc-001",
+            "serviceCatalogId": "srv-001",
+            "name": "Exterior wash",
+            "price": 950,
+            "isCompleted": true,
+            "completedAt": "2026-04-09T11:00:00.000Z",
+            "durationMinutes": 45
+          },
+          {
+            "id": "si-jc-001-2",
+            "jobCardId": "jc-001",
+            "serviceCatalogId": "srv-002",
+            "name": "Full interior detail",
+            "price": 1100,
+            "isCompleted": true,
+            "completedAt": "2026-04-10T11:00:00.000Z",
+            "durationMinutes": 50
+          },
+          {
+            "id": "si-jc-001-3",
+            "jobCardId": "jc-001",
+            "serviceCatalogId": "srv-003",
+            "name": "AC refresh",
+            "price": 1250,
+            "isCompleted": true,
+            "completedAt": "2026-04-11T11:00:00.000Z",
+            "durationMinutes": 55
+          },
+          {
+            "id": "si-jc-001-4",
+            "jobCardId": "jc-001",
+            "serviceCatalogId": "srv-004",
+            "name": "Paint correction",
+            "price": 1400,
+            "isCompleted": false,
+            "durationMinutes": 60
+          },
+          {
+            "id": "si-jc-001-5",
+            "jobCardId": "jc-001",
+            "serviceCatalogId": "srv-005",
+            "name": "Ceramic coat",
+            "price": 1550,
+            "isCompleted": false,
+            "durationMinutes": 65
+          }
+        ],
+        "estimatedAmount": 6250,
+        "incentivePercent": 10,
+        "incentiveAmount": 625,
+        "termsAndConditions": "Standard workshop T&C apply.",
+        "notes": "Seed job 1",
+        "createdBy": "usr-admin",
+        "createdAt": "2026-04-11T09:00:00.000Z",
+        "updatedAt": "2026-04-15T11:00:00.000Z"
+      },
+      {
+        "id": "jc-002",
+        "jobNumber": "JC-2026-102",
+        "branchId": "br-002",
+        "customerId": "cust-002",
+        "customerName": "Test Customer 2",
+        "customerPhone": "+919876543202",
+        "vehicleId": "veh-002",
+        "vehicleRegNumber": "KA01AB1002",
+        "vehicleMakeModel": "Hyundai i20",
+        "vehicleSegment": "SEDAN",
+        "mechanicId": "usr-004",
+        "mechanicName": "Sunil Mechanic",
+        "status": "INSPECTION",
+        "reportedIssues": "Routine service",
+        "odometerReading": 13000,
+        "expectedDelivery": "2026-04-18T18:00:00.000Z",
+        "services": [
+          {
+            "id": "si-jc-002-1",
+            "jobCardId": "jc-002",
+            "serviceCatalogId": "srv-002",
+            "name": "Full interior detail",
+            "price": 1100,
+            "isCompleted": false,
+            "durationMinutes": 45
+          }
+        ],
+        "estimatedAmount": 1100,
+        "incentivePercent": 10,
+        "incentiveAmount": 110,
+        "termsAndConditions": "Standard workshop T&C apply.",
+        "notes": "Seed job 2",
+        "createdBy": "usr-admin",
+        "createdAt": "2026-04-12T09:00:00.000Z",
+        "updatedAt": "2026-04-16T11:00:00.000Z"
+      },
+      {
+        "id": "jc-003",
+        "jobNumber": "JC-2026-103",
+        "branchId": "br-002",
+        "customerId": "cust-003",
+        "customerName": "Test Customer 3",
+        "customerPhone": "+919876543203",
+        "vehicleId": "veh-003",
+        "vehicleRegNumber": "KA01AB1003",
+        "vehicleMakeModel": "Honda City",
+        "vehicleSegment": "SUV",
+        "mechanicId": "usr-003",
+        "mechanicName": "Ravi Mechanic",
+        "status": "AWAITING_SERVICE",
+        "reportedIssues": "Routine service",
+        "odometerReading": 13500,
+        "expectedDelivery": "2026-04-19T18:00:00.000Z",
+        "services": [
+          {
+            "id": "si-jc-003-1",
+            "jobCardId": "jc-003",
+            "serviceCatalogId": "srv-003",
+            "name": "AC refresh",
+            "price": 1250,
+            "isCompleted": false,
+            "durationMinutes": 45
+          }
+        ],
+        "estimatedAmount": 1250,
+        "incentivePercent": 10,
+        "incentiveAmount": 125,
+        "termsAndConditions": "Standard workshop T&C apply.",
+        "notes": "Seed job 3",
+        "createdBy": "usr-admin",
+        "createdAt": "2026-04-13T09:00:00.000Z",
+        "updatedAt": "2026-04-17T11:00:00.000Z"
+      },
+      {
+        "id": "jc-004",
+        "jobNumber": "JC-2026-104",
+        "branchId": "br-main",
+        "customerId": "cust-004",
+        "customerName": "Test Customer 4",
+        "customerPhone": "+919876543204",
+        "vehicleId": "veh-004",
+        "vehicleRegNumber": "KA01AB1004",
+        "vehicleMakeModel": "Tata Nexon",
+        "vehicleSegment": "COMPACT_SUV",
+        "mechanicId": "usr-004",
+        "mechanicName": "Sunil Mechanic",
+        "status": "QUALITY_CHECK",
+        "reportedIssues": "Routine service",
+        "odometerReading": 14000,
+        "expectedDelivery": "2026-04-20T18:00:00.000Z",
+        "services": [
+          {
+            "id": "si-jc-004-1",
+            "jobCardId": "jc-004",
+            "serviceCatalogId": "srv-004",
+            "name": "Paint correction",
+            "price": 1400,
+            "isCompleted": false,
+            "durationMinutes": 45
+          }
+        ],
+        "estimatedAmount": 1400,
+        "incentivePercent": 10,
+        "incentiveAmount": 140,
+        "termsAndConditions": "Standard workshop T&C apply.",
+        "notes": "Seed job 4",
+        "createdBy": "usr-admin",
+        "createdAt": "2026-04-14T09:00:00.000Z",
+        "updatedAt": "2026-04-18T11:00:00.000Z"
+      },
+      {
+        "id": "jc-005",
+        "jobNumber": "JC-2026-105",
+        "branchId": "br-002",
+        "customerId": "cust-005",
+        "customerName": "Test Customer 5",
+        "customerPhone": "+919876543205",
+        "vehicleId": "veh-005",
+        "vehicleRegNumber": "KA01AB1005",
+        "vehicleMakeModel": "Toyota Innova",
+        "vehicleSegment": "LUXURY",
+        "mechanicId": "usr-003",
+        "mechanicName": "Ravi Mechanic",
+        "status": "DELIVERED",
+        "reportedIssues": "Routine service",
+        "odometerReading": 14500,
+        "expectedDelivery": "2026-04-21T18:00:00.000Z",
+        "actualDelivery": "2026-04-15T17:00:00.000Z",
+        "services": [
+          {
+            "id": "si-jc-005-1",
+            "jobCardId": "jc-005",
+            "serviceCatalogId": "srv-005",
+            "name": "Ceramic coat",
+            "price": 1550,
+            "isCompleted": true,
+            "completedAt": "2026-04-15T16:00:00.000Z",
+            "durationMinutes": 45
+          }
+        ],
+        "estimatedAmount": 1550,
+        "incentivePercent": 10,
+        "incentiveAmount": 155,
+        "termsAndConditions": "Standard workshop T&C apply.",
+        "notes": "Seed job 5",
+        "createdBy": "usr-admin",
+        "createdAt": "2026-04-15T09:00:00.000Z",
+        "updatedAt": "2026-04-19T11:00:00.000Z"
+      },
+      {
+        "id": "jc-hitech-001",
+        "jobNumber": "JC-2025-046",
+        "branchId": "br-main",
+        "customerId": "cust-hitech",
+        "customerName": "HI TECH CAR SPA & DETAILING",
+        "customerPhone": "+919876543299",
+        "vehicleId": "veh-hitech-001",
+        "vehicleRegNumber": "UP16AB9999",
+        "vehicleMakeModel": "BMW 5 Series",
+        "vehicleSegment": "SEDAN",
+        "mechanicId": "usr-003",
+        "mechanicName": "Ravi Mechanic",
+        "status": "DELIVERED",
+        "reportedIssues": "Detailing package",
+        "odometerReading": 22000,
+        "expectedDelivery": "2025-07-14T18:00:00.000Z",
+        "services": [
+          {
+            "id": "si-hitech-1",
+            "jobCardId": "jc-hitech-001",
+            "serviceCatalogId": "srv-001",
+            "name": "Premium detail",
+            "price": 27726,
+            "isCompleted": true,
+            "durationMinutes": 480
+          }
+        ],
+        "estimatedAmount": 27726,
+        "incentivePercent": 10,
+        "incentiveAmount": 2772,
+        "termsAndConditions": "Standard workshop T&C apply.",
+        "notes": "Party demo \u2014 HI TECH",
+        "createdBy": "usr-admin",
+        "createdAt": "2025-07-13T09:00:00.000Z",
+        "updatedAt": "2025-07-16T11:00:00.000Z"
+      }
+    ],
+    "invoices": [
+      {
+        "id": "inv-001",
+        "invoiceNumber": "INV-2026-301",
+        "jobCardId": "jc-001",
+        "jobNumber": "JC-2026-101",
+        "customerId": "cust-001",
+        "customerName": "Test Customer 1",
+        "customerPhone": "+919876543201",
+        "vehicleRegNumber": "KA01AB1001",
+        "lineItems": [
+          {
+            "id": "li-inv-1-1",
+            "description": "Exterior wash",
+            "type": "SERVICE",
+            "quantity": 1,
+            "unitPrice": 5200,
+            "total": 5200
+          }
+        ],
+        "subtotal": 5200,
+        "taxRate": 18,
+        "taxAmount": 936,
+        "discountAmount": 0,
+        "rewardDiscount": 0,
+        "walletAmountUsed": 0,
+        "grandTotal": 6136,
+        "status": "PAID",
+        "payments": [
+          {
+            "id": "pay-1-1",
+            "invoiceId": "inv-001",
+            "amount": 6136,
+            "method": "UPI",
+            "referenceNumber": "UPI1REF",
+            "paidAt": "2026-04-13T14:00:00.000Z"
+          }
+        ],
+        "mechanicName": "Ravi Mechanic",
+        "createdAt": "2026-04-12T15:00:00.000Z"
+      },
+      {
+        "id": "inv-002",
+        "invoiceNumber": "INV-2026-302",
+        "jobCardId": "jc-002",
+        "jobNumber": "JC-2026-102",
+        "customerId": "cust-002",
+        "customerName": "Test Customer 2",
+        "customerPhone": "+919876543202",
+        "vehicleRegNumber": "KA01AB1002",
+        "lineItems": [
+          {
+            "id": "li-inv-2-1",
+            "description": "Full interior detail",
+            "type": "SERVICE",
+            "quantity": 1,
+            "unitPrice": 5900,
+            "total": 5900
+          }
+        ],
+        "subtotal": 5900,
+        "taxRate": 18,
+        "taxAmount": 1062,
+        "discountAmount": 0,
+        "rewardDiscount": 100,
+        "walletAmountUsed": 0,
+        "grandTotal": 6862,
+        "status": "PAID",
+        "payments": [
+          {
+            "id": "pay-2-1",
+            "invoiceId": "inv-002",
+            "amount": 6862,
+            "method": "UPI",
+            "referenceNumber": "UPI2REF",
+            "paidAt": "2026-04-14T14:00:00.000Z"
+          }
+        ],
+        "mechanicName": "Sunil Mechanic",
+        "createdAt": "2026-04-13T15:00:00.000Z"
+      },
+      {
+        "id": "inv-003",
+        "invoiceNumber": "INV-2026-303",
+        "jobCardId": "jc-003",
+        "jobNumber": "JC-2026-103",
+        "customerId": "cust-003",
+        "customerName": "Test Customer 3",
+        "customerPhone": "+919876543203",
+        "vehicleRegNumber": "KA01AB1003",
+        "lineItems": [
+          {
+            "id": "li-inv-3-1",
+            "description": "AC refresh",
+            "type": "SERVICE",
+            "quantity": 1,
+            "unitPrice": 6600,
+            "total": 6600
+          }
+        ],
+        "subtotal": 6600,
+        "taxRate": 18,
+        "taxAmount": 1188,
+        "discountAmount": 0,
+        "rewardDiscount": 0,
+        "walletAmountUsed": 0,
+        "grandTotal": 7788,
+        "status": "PARTIALLY_PAID",
+        "payments": [
+          {
+            "id": "pay-3-1",
+            "invoiceId": "inv-003",
+            "amount": 3115,
+            "method": "CASH",
+            "paidAt": "2026-04-13T12:00:00.000Z"
+          }
+        ],
+        "mechanicName": "Ravi Mechanic",
+        "createdAt": "2026-04-14T15:00:00.000Z"
+      },
+      {
+        "id": "inv-004",
+        "invoiceNumber": "INV-2026-304",
+        "jobCardId": "jc-004",
+        "jobNumber": "JC-2026-104",
+        "customerId": "cust-004",
+        "customerName": "Test Customer 4",
+        "customerPhone": "+919876543204",
+        "vehicleRegNumber": "KA01AB1004",
+        "lineItems": [
+          {
+            "id": "li-inv-4-1",
+            "description": "Paint correction",
+            "type": "SERVICE",
+            "quantity": 1,
+            "unitPrice": 7300,
+            "total": 7300
+          }
+        ],
+        "subtotal": 7300,
+        "taxRate": 18,
+        "taxAmount": 1314,
+        "discountAmount": 0,
+        "rewardDiscount": 0,
+        "walletAmountUsed": 0,
+        "grandTotal": 8614,
+        "status": "ISSUED",
+        "payments": [],
+        "mechanicName": "Sunil Mechanic",
+        "createdAt": "2026-04-15T15:00:00.000Z"
+      },
+      {
+        "id": "inv-005",
+        "invoiceNumber": "INV-2026-305",
+        "jobCardId": "jc-005",
+        "jobNumber": "JC-2026-105",
+        "customerId": "cust-005",
+        "customerName": "Test Customer 5",
+        "customerPhone": "+919876543205",
+        "vehicleRegNumber": "KA01AB1005",
+        "lineItems": [
+          {
+            "id": "li-inv-5-1",
+            "description": "Ceramic coat",
+            "type": "SERVICE",
+            "quantity": 1,
+            "unitPrice": 8000,
+            "total": 8000
+          }
+        ],
+        "subtotal": 8000,
+        "taxRate": 18,
+        "taxAmount": 1440,
+        "discountAmount": 0,
+        "rewardDiscount": 0,
+        "walletAmountUsed": 0,
+        "grandTotal": 9440,
+        "status": "ISSUED",
+        "payments": [],
+        "mechanicName": "Ravi Mechanic",
+        "createdAt": "2026-04-16T15:00:00.000Z"
+      },
+      {
+        "id": "inv-hitech-demo",
+        "invoiceNumber": "46",
+        "jobCardId": "jc-hitech-001",
+        "jobNumber": "JC-2025-046",
+        "customerId": "cust-hitech",
+        "customerName": "HI TECH CAR SPA & DETAILING",
+        "customerPhone": "+919876543299",
+        "vehicleRegNumber": "UP16AB9999",
+        "lineItems": [
+          {
+            "id": "li-hitech-1",
+            "description": "CERAMIC SPRAY (TURTLE WAX)",
+            "type": "PARTS",
+            "quantity": 3,
+            "unitPrice": 1270.34,
+            "total": 3811.02
+          },
+          {
+            "id": "li-hitech-2",
+            "description": "GLASS COATING (TURTLEWAX) 100ml",
+            "type": "PARTS",
+            "quantity": 5,
+            "unitPrice": 237.288,
+            "total": 1186.44
+          },
+          {
+            "id": "li-hitech-3",
+            "description": "HEAVY CUT COMPOUND",
+            "type": "PARTS",
+            "quantity": 6,
+            "unitPrice": 2771.1867,
+            "total": 16627.12
+          },
+          {
+            "id": "li-hitech-4",
+            "description": "POLISHING COMPOUND T-40",
+            "type": "PARTS",
+            "quantity": 3,
+            "unitPrice": 2033.8967,
+            "total": 6101.69
+          }
+        ],
+        "subtotal": 27726.27,
+        "taxRate": 18,
+        "taxAmount": 4990.73,
+        "discountAmount": 0,
+        "rewardDiscount": 0,
+        "walletAmountUsed": 0,
+        "grandTotal": 32717,
+        "status": "PARTIALLY_PAID",
+        "payments": [
+          {
+            "id": "pay-hitech-8",
+            "invoiceId": "inv-hitech-demo",
+            "amount": 32500,
+            "method": "UPI",
+            "referenceNumber": "HDFC 7180",
+            "paidAt": "2025-07-16T10:00:00.000Z"
+          }
+        ],
+        "mechanicName": "Ravi Mechanic",
+        "createdAt": "2025-07-13T10:00:00.000Z"
+      }
+    ],
+    "quotations": [
+      {
+        "id": "qt-001",
+        "quotationNumber": "QT-2026-201",
+        "customerId": "cust-001",
+        "customerName": "Test Customer 1",
+        "customerPhone": "+919876543201",
+        "vehicleId": "veh-001",
+        "vehicleRegNumber": "KA01AB1001",
+        "vehicleMakeModel": "Maruti Swift",
+        "vehicleSegment": "HATCHBACK",
+        "services": [
+          {
+            "serviceCatalogId": "srv-001",
+            "name": "Exterior wash",
+            "price": 950
+          }
+        ],
+        "subtotal": 4600,
+        "taxRate": 18,
+        "taxAmount": 828,
+        "grandTotal": 5428,
+        "status": "SENT",
+        "sentViaWhatsApp": false,
+        "customerApproved": false,
+        "validUntil": "2026-05-16",
+        "createdBy": "usr-admin",
+        "createdAt": "2026-04-06T10:00:00.000Z",
+        "updatedAt": "2026-04-09T10:00:00.000Z"
+      },
+      {
+        "id": "qt-002",
+        "quotationNumber": "QT-2026-202",
+        "customerId": "cust-002",
+        "customerName": "Test Customer 2",
+        "customerPhone": "+919876543202",
+        "vehicleId": "veh-002",
+        "vehicleRegNumber": "KA01AB1002",
+        "vehicleMakeModel": "Hyundai i20",
+        "vehicleSegment": "SEDAN",
+        "services": [
+          {
+            "serviceCatalogId": "srv-002",
+            "name": "Full interior detail",
+            "price": 1100
+          }
+        ],
+        "subtotal": 5200,
+        "taxRate": 18,
+        "taxAmount": 936,
+        "grandTotal": 6136,
+        "status": "SENT",
+        "sentViaWhatsApp": true,
+        "customerApproved": false,
+        "validUntil": "2026-05-16",
+        "createdBy": "usr-admin",
+        "createdAt": "2026-04-07T10:00:00.000Z",
+        "updatedAt": "2026-04-10T10:00:00.000Z"
+      },
+      {
+        "id": "qt-003",
+        "quotationNumber": "QT-2026-203",
+        "customerId": "cust-003",
+        "customerName": "Test Customer 3",
+        "customerPhone": "+919876543203",
+        "vehicleId": "veh-003",
+        "vehicleRegNumber": "KA01AB1003",
+        "vehicleMakeModel": "Honda City",
+        "vehicleSegment": "SUV",
+        "services": [
+          {
+            "serviceCatalogId": "srv-003",
+            "name": "AC refresh",
+            "price": 1250
+          }
+        ],
+        "subtotal": 5800,
+        "taxRate": 18,
+        "taxAmount": 1044,
+        "grandTotal": 6844,
+        "status": "SENT",
+        "sentViaWhatsApp": false,
+        "customerApproved": true,
+        "validUntil": "2026-05-16",
+        "createdBy": "usr-admin",
+        "createdAt": "2026-04-08T10:00:00.000Z",
+        "updatedAt": "2026-04-11T10:00:00.000Z"
+      },
+      {
+        "id": "qt-004",
+        "quotationNumber": "QT-2026-204",
+        "customerId": "cust-004",
+        "customerName": "Test Customer 4",
+        "customerPhone": "+919876543204",
+        "vehicleId": "veh-004",
+        "vehicleRegNumber": "KA01AB1004",
+        "vehicleMakeModel": "Tata Nexon",
+        "vehicleSegment": "COMPACT_SUV",
+        "services": [
+          {
+            "serviceCatalogId": "srv-004",
+            "name": "Paint correction",
+            "price": 1400
+          }
+        ],
+        "subtotal": 6400,
+        "taxRate": 18,
+        "taxAmount": 1152,
+        "grandTotal": 7552,
+        "status": "SENT",
+        "sentViaWhatsApp": true,
+        "customerApproved": false,
+        "validUntil": "2026-05-16",
+        "createdBy": "usr-admin",
+        "createdAt": "2026-04-09T10:00:00.000Z",
+        "updatedAt": "2026-04-12T10:00:00.000Z"
+      },
+      {
+        "id": "qt-005",
+        "quotationNumber": "QT-2026-205",
+        "customerId": "cust-005",
+        "customerName": "Test Customer 5",
+        "customerPhone": "+919876543205",
+        "vehicleId": "veh-005",
+        "vehicleRegNumber": "KA01AB1005",
+        "vehicleMakeModel": "Toyota Innova",
+        "vehicleSegment": "LUXURY",
+        "services": [
+          {
+            "serviceCatalogId": "srv-005",
+            "name": "Ceramic coat",
+            "price": 1550
+          }
+        ],
+        "subtotal": 7000,
+        "taxRate": 18,
+        "taxAmount": 1260,
+        "grandTotal": 8260,
+        "status": "CONVERTED",
+        "sentViaWhatsApp": false,
+        "customerApproved": false,
+        "convertedToJobCardId": "jc-005",
+        "validUntil": "2026-05-16",
+        "createdBy": "usr-admin",
+        "createdAt": "2026-04-10T10:00:00.000Z",
+        "updatedAt": "2026-04-13T10:00:00.000Z"
+      }
+    ],
+    "appointments": [
+      {
+        "id": "apt-001",
+        "bookingId": "bk-001",
+        "customerId": "cust-001",
+        "customerName": "Test Customer 1",
+        "customerPhone": "+919876543201",
+        "vehicleId": "veh-001",
+        "vehicleRegNumber": "KA01AB1001",
+        "vehicleMakeModel": "Maruti Swift",
+        "serviceType": "Exterior wash",
+        "mechanicId": "usr-003",
+        "mechanicName": "Ravi Mechanic",
+        "date": "2026-04-17",
+        "time": "10:00",
+        "status": "SCHEDULED",
+        "notes": "Appointment seed 1",
+        "whatsappSent": true,
+        "createdAt": "2026-04-02T08:00:00.000Z",
+        "customerFirstName": "Customer1",
+        "priceSubtotalExGst": 3400,
+        "priceGstAmount": 612,
+        "priceGrandTotal": 4012
+      },
+      {
+        "id": "apt-002",
+        "bookingId": "bk-002",
+        "customerId": "cust-002",
+        "customerName": "Test Customer 2",
+        "customerPhone": "+919876543202",
+        "vehicleId": "veh-002",
+        "vehicleRegNumber": "KA01AB1002",
+        "vehicleMakeModel": "Hyundai i20",
+        "serviceType": "Full interior detail",
+        "mechanicId": "usr-003",
+        "mechanicName": "Ravi Mechanic",
+        "date": "2026-04-18",
+        "time": "11:00",
+        "status": "CONFIRMED",
+        "notes": "Appointment seed 2",
+        "whatsappSent": true,
+        "createdAt": "2026-04-03T08:00:00.000Z",
+        "customerFirstName": "Customer2",
+        "priceSubtotalExGst": 3800,
+        "priceGstAmount": 684,
+        "priceGrandTotal": 4484
+      },
+      {
+        "id": "apt-003",
+        "bookingId": "bk-003",
+        "customerId": "cust-003",
+        "customerName": "Test Customer 3",
+        "customerPhone": "+919876543203",
+        "vehicleId": "veh-003",
+        "vehicleRegNumber": "KA01AB1003",
+        "vehicleMakeModel": "Honda City",
+        "serviceType": "AC refresh",
+        "mechanicId": "usr-003",
+        "mechanicName": "Ravi Mechanic",
+        "date": "2026-04-19",
+        "time": "12:00",
+        "status": "IN_PROGRESS",
+        "notes": "Appointment seed 3",
+        "whatsappSent": true,
+        "createdAt": "2026-04-04T08:00:00.000Z",
+        "customerFirstName": "Customer3",
+        "priceSubtotalExGst": 4200,
+        "priceGstAmount": 756,
+        "priceGrandTotal": 4956
+      },
+      {
+        "id": "apt-004",
+        "bookingId": "bk-004",
+        "customerId": "cust-004",
+        "customerName": "Test Customer 4",
+        "customerPhone": "+919876543204",
+        "vehicleId": "veh-004",
+        "vehicleRegNumber": "KA01AB1004",
+        "vehicleMakeModel": "Tata Nexon",
+        "serviceType": "Paint correction",
+        "mechanicId": "usr-003",
+        "mechanicName": "Ravi Mechanic",
+        "date": "2026-04-20",
+        "time": "13:00",
+        "status": "COMPLETED",
+        "notes": "Appointment seed 4",
+        "whatsappSent": true,
+        "createdAt": "2026-04-05T08:00:00.000Z",
+        "customerFirstName": "Customer4",
+        "priceSubtotalExGst": 4600,
+        "priceGstAmount": 828,
+        "priceGrandTotal": 5428
+      },
+      {
+        "id": "apt-005",
+        "bookingId": "bk-005",
+        "customerId": "cust-005",
+        "customerName": "Test Customer 5",
+        "customerPhone": "+919876543205",
+        "vehicleId": "veh-005",
+        "vehicleRegNumber": "KA01AB1005",
+        "vehicleMakeModel": "Toyota Innova",
+        "serviceType": "Ceramic coat",
+        "mechanicId": "usr-003",
+        "mechanicName": "Ravi Mechanic",
+        "date": "2026-04-21",
+        "time": "14:00",
+        "status": "SCHEDULED",
+        "notes": "Appointment seed 5",
+        "whatsappSent": true,
+        "createdAt": "2026-04-06T08:00:00.000Z",
+        "customerFirstName": "Customer5",
+        "priceSubtotalExGst": 5000,
+        "priceGstAmount": 900,
+        "priceGrandTotal": 5900
+      },
+      {
+        "id": "apt-019",
+        "bookingId": "5022",
+        "kind": "BOOKING",
+        "customerId": "cust-019",
+        "customerName": "BHARAT PREMANI",
+        "customerPhone": "9369111655",
+        "whatsappPhone": "7007156363",
+        "vehicleId": "veh-019",
+        "vehicleRegNumber": "JH-18A-5756",
+        "vehicleMakeModel": "Land Rover Defender",
+        "vehicleColor": "BLACK",
+        "serviceType": "(Package) Garware Premium PPF",
+        "bookingPricingLine": "1,45,000 - 43,000 = 1,02,000 (-17,000 Additional Discount) *One Time Only.",
+        "date": "2025-05-15",
+        "time": "10:00",
+        "expectedDeliveryDate": "2025-05-18",
+        "deliveryExpectationNote": "we will try our 100% to deliver it on Saturday Evening.",
+        "status": "CONFIRMED",
+        "whatsappSent": false,
+        "createdAt": "2025-05-10T08:00:00.000Z",
+        "customerFirstName": "BHARAT",
+        "customerAddress": "E80, 1st floor, Greater Kailash 2, DELHI-110048",
+        "priceSubtotalExGst": 85000,
+        "priceGstAmount": 15300,
+        "priceGrandTotal": 100300,
+        "advancePaid": 10000,
+        "advancePolicyNote": "An advance payment of 30% is required to confirm and pre-schedule your service slot."
+      }
+    ],
+    "expenses": [
+      {
+        "id": "exp-001",
+        "title": "Rent April",
+        "category": "RENT",
+        "description": "Seed expense 1",
+        "amount": 6200,
+        "date": "2026-04-14",
+        "vendorName": "Vendor Seed 1",
+        "paymentStatus": "PAID",
+        "paymentMethod": "BANK_TRANSFER",
+        "createdBy": "usr-admin",
+        "createdByName": "Administrator",
+        "branchId": "br-main",
+        "createdAt": "2026-04-03T09:00:00.000Z"
+      },
+      {
+        "id": "exp-002",
+        "title": "Consumables",
+        "category": "SUPPLIES",
+        "description": "Seed expense 2",
+        "amount": 7400,
+        "date": "2026-04-12",
+        "vendorName": "Vendor Seed 2",
+        "paymentStatus": "PAID",
+        "paymentMethod": "BANK_TRANSFER",
+        "createdBy": "usr-admin",
+        "createdByName": "Administrator",
+        "branchId": "br-002",
+        "createdAt": "2026-04-04T09:00:00.000Z"
+      },
+      {
+        "id": "exp-003",
+        "title": "Power bill",
+        "category": "UTILITIES",
+        "description": "Seed expense 3",
+        "amount": 8600,
+        "date": "2026-04-10",
+        "vendorName": "Vendor Seed 3",
+        "paymentStatus": "PAID",
+        "paymentMethod": "BANK_TRANSFER",
+        "createdBy": "usr-admin",
+        "createdByName": "Administrator",
+        "branchId": "br-002",
+        "createdAt": "2026-04-05T09:00:00.000Z"
+      },
+      {
+        "id": "exp-004",
+        "title": "Marketing",
+        "category": "MARKETING",
+        "description": "Seed expense 4",
+        "amount": 9800,
+        "amountPaid": 2000,
+        "date": "2026-04-08",
+        "vendorName": "Vendor Seed 4",
+        "paymentStatus": "PARTIAL",
+        "paymentMethod": "BANK_TRANSFER",
+        "createdBy": "usr-admin",
+        "createdByName": "Administrator",
+        "branchId": "br-main",
+        "createdAt": "2026-04-06T09:00:00.000Z"
+      },
+      {
+        "id": "exp-005",
+        "title": "Tooling",
+        "category": "MAINTENANCE",
+        "description": "Seed expense 5",
+        "amount": 11000,
+        "date": "2026-04-06",
+        "vendorName": "Vendor Seed 5",
+        "paymentStatus": "PAID",
+        "paymentMethod": "BANK_TRANSFER",
+        "createdBy": "usr-admin",
+        "createdByName": "Administrator",
+        "branchId": "br-002",
+        "createdAt": "2026-04-07T09:00:00.000Z"
+      }
+    ],
+    "activityLogs": [
+      {
+        "id": "log-001",
+        "action": "CREATED",
+        "entityType": "JOB_CARD",
+        "entityId": "jc-001",
+        "entityLabel": "JC-2026-101",
+        "userId": "usr-admin",
+        "userName": "Administrator",
+        "details": "Seed activity 1",
+        "createdAt": "2026-04-04T10:30:00.000Z"
+      },
+      {
+        "id": "log-002",
+        "action": "UPDATED",
+        "entityType": "CUSTOMER",
+        "entityId": "cust-002",
+        "entityLabel": "Test Customer 2",
+        "userId": "usr-admin",
+        "userName": "Administrator",
+        "details": "Seed activity 2",
+        "createdAt": "2026-04-05T10:30:00.000Z"
+      },
+      {
+        "id": "log-003",
+        "action": "STATUS_CHANGED",
+        "entityType": "JOB_CARD",
+        "entityId": "jc-003",
+        "entityLabel": "JC-2026-103",
+        "userId": "usr-admin",
+        "userName": "Administrator",
+        "details": "Seed activity 3",
+        "createdAt": "2026-04-06T10:30:00.000Z"
+      },
+      {
+        "id": "log-004",
+        "action": "PAYMENT_RECEIVED",
+        "entityType": "INVOICE",
+        "entityId": "cust-004",
+        "entityLabel": "Test Customer 4",
+        "userId": "usr-admin",
+        "userName": "Administrator",
+        "details": "Seed activity 4",
+        "createdAt": "2026-04-07T10:30:00.000Z"
+      },
+      {
+        "id": "log-005",
+        "action": "COMPLETED",
+        "entityType": "JOB_CARD",
+        "entityId": "jc-005",
+        "entityLabel": "JC-2026-105",
+        "userId": "usr-admin",
+        "userName": "Administrator",
+        "details": "Seed activity 5",
+        "createdAt": "2026-04-08T10:30:00.000Z"
+      }
+    ],
+    "serviceReminders": [
+      {
+        "id": "rem-001",
+        "vehicleId": "veh-001",
+        "vehicleRegNumber": "KA01AB1001",
+        "vehicleMakeModel": "Maruti Swift",
+        "customerId": "cust-001",
+        "customerName": "Test Customer 1",
+        "customerPhone": "+919876543201",
+        "type": "GENERAL_SERVICE",
+        "frequency": "YEARLY",
+        "dueDate": "2026-05-11",
+        "lastServiceDate": "2026-02-05",
+        "lastJobCardId": "jc-001",
+        "status": "UPCOMING",
+        "isHighEndService": false,
+        "notes": "Seed reminder 1"
+      },
+      {
+        "id": "rem-002",
+        "vehicleId": "veh-002",
+        "vehicleRegNumber": "KA01AB1002",
+        "vehicleMakeModel": "Hyundai i20",
+        "customerId": "cust-002",
+        "customerName": "Test Customer 2",
+        "customerPhone": "+919876543202",
+        "type": "OIL_CHANGE",
+        "frequency": "YEARLY",
+        "dueDate": "2026-05-16",
+        "lastServiceDate": "2026-01-26",
+        "lastJobCardId": "jc-002",
+        "status": "DUE",
+        "isHighEndService": false,
+        "notes": "Seed reminder 2"
+      },
+      {
+        "id": "rem-003",
+        "vehicleId": "veh-003",
+        "vehicleRegNumber": "KA01AB1003",
+        "vehicleMakeModel": "Honda City",
+        "customerId": "cust-003",
+        "customerName": "Test Customer 3",
+        "customerPhone": "+919876543203",
+        "type": "AC_SERVICE",
+        "frequency": "YEARLY",
+        "dueDate": "2026-05-21",
+        "lastServiceDate": "2026-01-16",
+        "lastJobCardId": "jc-003",
+        "status": "UPCOMING",
+        "isHighEndService": false,
+        "notes": "Seed reminder 3"
+      },
+      {
+        "id": "rem-004",
+        "vehicleId": "veh-004",
+        "vehicleRegNumber": "KA01AB1004",
+        "vehicleMakeModel": "Tata Nexon",
+        "customerId": "cust-004",
+        "customerName": "Test Customer 4",
+        "customerPhone": "+919876543204",
+        "type": "TIRE_ROTATION",
+        "frequency": "YEARLY",
+        "dueDate": "2026-05-26",
+        "lastServiceDate": "2026-01-06",
+        "lastJobCardId": "jc-004",
+        "status": "OVERDUE",
+        "isHighEndService": false,
+        "notes": "Seed reminder 4"
+      },
+      {
+        "id": "rem-005",
+        "vehicleId": "veh-005",
+        "vehicleRegNumber": "KA01AB1005",
+        "vehicleMakeModel": "Toyota Innova",
+        "customerId": "cust-005",
+        "customerName": "Test Customer 5",
+        "customerPhone": "+919876543205",
+        "type": "INSURANCE",
+        "frequency": "YEARLY",
+        "dueDate": "2026-05-31",
+        "lastServiceDate": "2025-12-27",
+        "lastJobCardId": "jc-005",
+        "status": "UPCOMING",
+        "isHighEndService": true,
+        "notes": "Seed reminder 5"
+      }
+    ],
+    "walletTransactions": [
+      {
+        "id": "wtx-001",
+        "customerId": "cust-001",
+        "customerName": "Test Customer 1",
+        "type": "CREDIT",
+        "amount": 100,
+        "source": "REFERRAL_REWARD",
+        "description": "Seed wallet txn 1",
+        "balanceAfter": 700,
+        "createdAt": "2026-04-05T12:00:00.000Z"
+      },
+      {
+        "id": "wtx-002",
+        "customerId": "cust-002",
+        "customerName": "Test Customer 2",
+        "type": "DEBIT",
+        "amount": 200,
+        "source": "INVOICE_PAYMENT",
+        "description": "Seed wallet txn 2",
+        "balanceAfter": 900,
+        "createdAt": "2026-04-06T12:00:00.000Z"
+      },
+      {
+        "id": "wtx-003",
+        "customerId": "cust-003",
+        "customerName": "Test Customer 3",
+        "type": "CREDIT",
+        "amount": 300,
+        "source": "LOYALTY_POINTS",
+        "referenceId": "jc-003",
+        "description": "Seed wallet txn 3",
+        "balanceAfter": 1100,
+        "createdAt": "2026-04-07T12:00:00.000Z"
+      },
+      {
+        "id": "wtx-004",
+        "customerId": "cust-004",
+        "customerName": "Test Customer 4",
+        "type": "DEBIT",
+        "amount": 400,
+        "source": "ADMIN_CREDIT",
+        "referenceId": "jc-004",
+        "description": "Seed wallet txn 4",
+        "balanceAfter": 1300,
+        "createdAt": "2026-04-08T12:00:00.000Z"
+      },
+      {
+        "id": "wtx-005",
+        "customerId": "cust-005",
+        "customerName": "Test Customer 5",
+        "type": "CREDIT",
+        "amount": 500,
+        "source": "REFUND",
+        "referenceId": "jc-005",
+        "description": "Seed wallet txn 5",
+        "balanceAfter": 1500,
+        "createdAt": "2026-04-09T12:00:00.000Z"
+      }
+    ],
+    "serviceCatalog": [
+      {
+        "id": "srv-001",
+        "name": "Exterior wash",
+        "description": "Seed main service 1 (wizard: Select service).",
+        "defaultPrice": 950,
+        "segmentPricing": {
+          "HATCHBACK": 950,
+          "SEDAN": 1093,
+          "SUV": 1283,
+          "LUXURY": 1710,
+          "MUV": 1188,
+          "COMPACT_SUV": 1216,
+          "BIKE": 523
+        },
+        "category": "cat-001",
+        "isAddon": false,
+        "scope": "GLOBAL",
+        "isActive": true,
+        "isHighEnd": false,
+        "incentivePercent": 9,
+        "durationMinutes": 40,
+        "maxDurationMinutes": 52,
+        "gstApplicable": true,
+        "gstPercent": 18,
+        "consumptionProfile": [
+          {
+            "partId": "part-002",
+            "partName": "Engine oil 5W30",
+            "quantityPerCar": 0.5,
+            "unit": "L"
+          }
+        ]
+      },
+      {
+        "id": "srv-002",
+        "name": "Full interior detail",
+        "description": "Seed main service 2 (wizard: Select service).",
+        "defaultPrice": 1100,
+        "segmentPricing": {
+          "HATCHBACK": 1100,
+          "SEDAN": 1265,
+          "SUV": 1485,
+          "LUXURY": 1980,
+          "MUV": 1375,
+          "COMPACT_SUV": 1408,
+          "BIKE": 605
+        },
+        "category": "cat-002",
+        "isAddon": false,
+        "scope": "GLOBAL",
+        "isActive": true,
+        "isHighEnd": false,
+        "incentivePercent": 10,
+        "durationMinutes": 50,
+        "maxDurationMinutes": 64,
+        "gstApplicable": true,
+        "gstPercent": 18,
+        "consumptionProfile": [
+          {
+            "partId": "part-002",
+            "partName": "Engine oil 5W30",
+            "quantityPerCar": 0.35,
+            "unit": "L"
+          }
+        ]
+      },
+      {
+        "id": "srv-003",
+        "name": "AC refresh",
+        "description": "Seed main service 3 (wizard: Select service).",
+        "defaultPrice": 1250,
+        "segmentPricing": {
+          "HATCHBACK": 1250,
+          "SEDAN": 1438,
+          "SUV": 1688,
+          "LUXURY": 2250,
+          "MUV": 1563,
+          "COMPACT_SUV": 1600,
+          "BIKE": 688
+        },
+        "category": "cat-003",
+        "isAddon": false,
+        "scope": "GLOBAL",
+        "isActive": true,
+        "isHighEnd": false,
+        "incentivePercent": 11,
+        "durationMinutes": 60,
+        "maxDurationMinutes": 76,
+        "gstApplicable": true,
+        "gstPercent": 18,
+        "consumptionProfile": [
+          {
+            "partId": "part-002",
+            "partName": "Engine oil 5W30",
+            "quantityPerCar": 0.25,
+            "unit": "L"
+          }
+        ]
+      },
+      {
+        "id": "srv-004",
+        "name": "Paint correction",
+        "description": "Seed main service 4 (wizard: Select service).",
+        "defaultPrice": 1400,
+        "segmentPricing": {
+          "HATCHBACK": 1400,
+          "SEDAN": 1610,
+          "SUV": 1890,
+          "LUXURY": 2520,
+          "MUV": 1750,
+          "COMPACT_SUV": 1792,
+          "BIKE": 770
+        },
+        "category": "cat-004",
+        "isAddon": false,
+        "scope": "GLOBAL",
+        "isActive": true,
+        "isHighEnd": true,
+        "incentivePercent": 12,
+        "durationMinutes": 70,
+        "maxDurationMinutes": 88,
+        "gstApplicable": true,
+        "gstPercent": 18
+      },
+      {
+        "id": "srv-005",
+        "name": "Ceramic coat",
+        "description": "Seed main service 5 (wizard: Select service).",
+        "defaultPrice": 1550,
+        "segmentPricing": {
+          "HATCHBACK": 1550,
+          "SEDAN": 1782,
+          "SUV": 2093,
+          "LUXURY": 2790,
+          "MUV": 1938,
+          "COMPACT_SUV": 1984,
+          "BIKE": 853
+        },
+        "category": "cat-005",
+        "isAddon": false,
+        "scope": "GLOBAL",
+        "isActive": true,
+        "isHighEnd": true,
+        "incentivePercent": 13,
+        "durationMinutes": 80,
+        "maxDurationMinutes": 100,
+        "gstApplicable": true,
+        "gstPercent": 18
+      },
+      {
+        "id": "srv-a01",
+        "name": "Engine flush add-on",
+        "description": "Seed add-on 1.",
+        "defaultPrice": 374,
+        "segmentPricing": {
+          "HATCHBACK": 374,
+          "SEDAN": 430,
+          "SUV": 505,
+          "LUXURY": 673,
+          "MUV": 468,
+          "COMPACT_SUV": 479,
+          "BIKE": 206
+        },
+        "category": "cat-003",
+        "isAddon": true,
+        "scope": "GLOBAL",
+        "isActive": true,
+        "isHighEnd": false,
+        "incentivePercent": 5,
+        "durationMinutes": 20,
+        "gstApplicable": true,
+        "gstPercent": 18
+      },
+      {
+        "id": "srv-a02",
+        "name": "Tire shine",
+        "description": "Seed add-on 2.",
+        "defaultPrice": 449,
+        "segmentPricing": {
+          "HATCHBACK": 449,
+          "SEDAN": 516,
+          "SUV": 606,
+          "LUXURY": 808,
+          "MUV": 561,
+          "COMPACT_SUV": 575,
+          "BIKE": 247
+        },
+        "category": "cat-004",
+        "isAddon": true,
+        "scope": "GLOBAL",
+        "isActive": true,
+        "isHighEnd": false,
+        "incentivePercent": 5,
+        "durationMinutes": 25,
+        "gstApplicable": true,
+        "gstPercent": 18
+      },
+      {
+        "id": "srv-a03",
+        "name": "Odour treatment",
+        "description": "Seed add-on 3.",
+        "defaultPrice": 524,
+        "segmentPricing": {
+          "HATCHBACK": 524,
+          "SEDAN": 603,
+          "SUV": 707,
+          "LUXURY": 943,
+          "MUV": 655,
+          "COMPACT_SUV": 671,
+          "BIKE": 288
+        },
+        "category": "cat-005",
+        "isAddon": true,
+        "scope": "GLOBAL",
+        "isActive": true,
+        "isHighEnd": false,
+        "incentivePercent": 5,
+        "durationMinutes": 30,
+        "gstApplicable": true,
+        "gstPercent": 18
+      },
+      {
+        "id": "srv-a04",
+        "name": "Underbody rinse",
+        "description": "Seed add-on 4.",
+        "defaultPrice": 599,
+        "segmentPricing": {
+          "HATCHBACK": 599,
+          "SEDAN": 689,
+          "SUV": 809,
+          "LUXURY": 1078,
+          "MUV": 749,
+          "COMPACT_SUV": 767,
+          "BIKE": 329
+        },
+        "category": "cat-001",
+        "isAddon": true,
+        "scope": "GLOBAL",
+        "isActive": true,
+        "isHighEnd": false,
+        "incentivePercent": 5,
+        "durationMinutes": 35,
+        "gstApplicable": true,
+        "gstPercent": 18
+      },
+      {
+        "id": "srv-a05",
+        "name": "Glass sealant add-on",
+        "description": "Seed add-on 5.",
+        "defaultPrice": 674,
+        "segmentPricing": {
+          "HATCHBACK": 674,
+          "SEDAN": 775,
+          "SUV": 910,
+          "LUXURY": 1213,
+          "MUV": 843,
+          "COMPACT_SUV": 863,
+          "BIKE": 371
+        },
+        "category": "cat-002",
+        "isAddon": true,
+        "scope": "GLOBAL",
+        "isActive": true,
+        "isHighEnd": false,
+        "incentivePercent": 5,
+        "durationMinutes": 40,
+        "gstApplicable": true,
+        "gstPercent": 18
+      },
+      {
+        "id": "srv-a06",
+        "name": "Clay bar treatment",
+        "description": "Seed add-on 6 \u2014 paint decontamination clay bar pass.",
+        "defaultPrice": 749,
+        "segmentPricing": {
+          "HATCHBACK": 749,
+          "SEDAN": 861,
+          "SUV": 1011,
+          "LUXURY": 1348,
+          "MUV": 936,
+          "COMPACT_SUV": 959,
+          "BIKE": 412
+        },
+        "category": "cat-003",
+        "isAddon": true,
+        "scope": "GLOBAL",
+        "isActive": true,
+        "isHighEnd": false,
+        "incentivePercent": 6,
+        "durationMinutes": 45,
+        "gstApplicable": true,
+        "gstPercent": 18
+      }
+    ],
+    "parts": [
+      {
+        "id": "part-001",
+        "name": "Microfiber pack",
+        "sku": "SKU-SEED-101",
+        "category": "Detailing",
+        "quantity": 2,
+        "primaryUnit": "Box",
+        "secondaryUnit": "PCS",
+        "conversionFactor": 12,
+        "unitPrice": 175,
+        "reorderLevel": 5,
+        "supplier": "Supplier 1",
+        "lastRestocked": "2026-04-15",
+        "stockQuantitySecondary": 25
+      },
+      {
+        "id": "part-002",
+        "name": "Engine oil 5W30",
+        "sku": "SKU-SEED-102",
+        "category": "Lubricants",
+        "quantity": 48,
+        "primaryUnit": "Litre",
+        "secondaryUnit": "ML",
+        "conversionFactor": 1000,
+        "unitPrice": 200,
+        "reorderLevel": 5,
+        "supplier": "Supplier 2",
+        "lastRestocked": "2026-04-14",
+        "stockQuantityMl": 48000,
+        "reorderLevelMl": 8000
+      },
+      {
+        "id": "part-003",
+        "name": "Cabin filter",
+        "sku": "SKU-SEED-103",
+        "category": "Filters",
+        "quantity": 2,
+        "primaryUnit": "Box",
+        "secondaryUnit": "PCS",
+        "conversionFactor": 12,
+        "unitPrice": 225,
+        "reorderLevel": 5,
+        "supplier": "Supplier 3",
+        "lastRestocked": "2026-04-13",
+        "stockQuantitySecondary": 35
+      },
+      {
+        "id": "part-004",
+        "name": "Polish compound",
+        "sku": "SKU-SEED-104",
+        "category": "Body",
+        "quantity": 3,
+        "primaryUnit": "Box",
+        "secondaryUnit": "PCS",
+        "conversionFactor": 12,
+        "unitPrice": 250,
+        "reorderLevel": 5,
+        "supplier": "Supplier 4",
+        "lastRestocked": "2026-04-12",
+        "stockQuantitySecondary": 40
+      },
+      {
+        "id": "part-005",
+        "name": "Wiring harness",
+        "sku": "SKU-SEED-105",
+        "category": "Electrical",
+        "quantity": 3,
+        "primaryUnit": "Box",
+        "secondaryUnit": "PCS",
+        "conversionFactor": 12,
+        "unitPrice": 275,
+        "reorderLevel": 5,
+        "supplier": "Supplier 5",
+        "lastRestocked": "2026-04-11",
+        "stockQuantitySecondary": 45
+      }
+    ],
+    "stockMovements": [
+      {
+        "id": "stk-001",
+        "partId": "part-001",
+        "type": "IN",
+        "quantity": 2,
+        "unit": "pcs",
+        "reason": "Purchase receipt",
+        "purchaseId": "purch-001",
+        "performedBy": "usr-admin",
+        "createdAt": "2026-04-07T16:00:00.000Z"
+      },
+      {
+        "id": "stk-002",
+        "partId": "part-002",
+        "type": "OUT",
+        "quantity": 4,
+        "unit": "pcs",
+        "reason": "Job jc-002 consumption",
+        "jobCardId": "jc-002",
+        "performedBy": "usr-admin",
+        "createdAt": "2026-04-08T16:00:00.000Z"
+      },
+      {
+        "id": "stk-003",
+        "partId": "part-003",
+        "type": "IN",
+        "quantity": 6,
+        "unit": "pcs",
+        "reason": "Purchase receipt",
+        "purchaseId": "purch-003",
+        "performedBy": "usr-admin",
+        "createdAt": "2026-04-09T16:00:00.000Z"
+      },
+      {
+        "id": "stk-004",
+        "partId": "part-004",
+        "type": "OUT",
+        "quantity": 8,
+        "unit": "pcs",
+        "reason": "Job jc-004 consumption",
+        "jobCardId": "jc-004",
+        "performedBy": "usr-admin",
+        "createdAt": "2026-04-10T16:00:00.000Z"
+      },
+      {
+        "id": "stk-005",
+        "partId": "part-005",
+        "type": "IN",
+        "quantity": 10,
+        "unit": "pcs",
+        "reason": "Purchase receipt",
+        "purchaseId": "purch-005",
+        "performedBy": "usr-admin",
+        "createdAt": "2026-04-11T16:00:00.000Z"
+      }
+    ],
+    "productPurchases": [
+      {
+        "id": "purch-001",
+        "partId": "part-001",
+        "vendorName": "Vendor 1",
+        "quantityMl": 1000,
+        "unitCost": 90,
+        "reference": "PO-2026-401",
+        "purchasedAt": "2026-04-08T11:00:00.000Z",
+        "recordedBy": "usr-admin"
+      },
+      {
+        "id": "purch-002",
+        "partId": "part-002",
+        "vendorName": "Vendor 2",
+        "quantityMl": 2000,
+        "unitCost": 100,
+        "reference": "PO-2026-402",
+        "purchasedAt": "2026-04-09T11:00:00.000Z",
+        "recordedBy": "usr-admin"
+      },
+      {
+        "id": "purch-003",
+        "partId": "part-003",
+        "vendorName": "Vendor 3",
+        "quantityMl": 3000,
+        "unitCost": 110,
+        "reference": "PO-2026-403",
+        "purchasedAt": "2026-04-10T11:00:00.000Z",
+        "recordedBy": "usr-admin"
+      },
+      {
+        "id": "purch-004",
+        "partId": "part-004",
+        "vendorName": "Vendor 4",
+        "quantityMl": 4000,
+        "unitCost": 120,
+        "reference": "PO-2026-404",
+        "purchasedAt": "2026-04-11T11:00:00.000Z",
+        "recordedBy": "usr-admin"
+      },
+      {
+        "id": "purch-005",
+        "partId": "part-005",
+        "vendorName": "Vendor 5",
+        "quantityMl": 5000,
+        "unitCost": 130,
+        "reference": "PO-2026-405",
+        "purchasedAt": "2026-04-12T11:00:00.000Z",
+        "recordedBy": "usr-admin"
+      }
+    ],
+    "followUps": [
+      {
+        "id": "fu-001",
+        "customerId": "cust-001",
+        "customerName": "Test Customer 1",
+        "customerPhone": "+919876543201",
+        "lastVisitDate": "2026-04-01",
+        "daysSinceLastVisit": 15,
+        "assignedTo": "usr-005",
+        "assignedToName": "Neha Reception",
+        "status": "PENDING",
+        "nextCallbackDate": "2026-04-23",
+        "createdAt": "2026-04-01T09:00:00.000Z",
+        "updatedAt": "2026-04-09T09:00:00.000Z"
+      },
+      {
+        "id": "fu-002",
+        "customerId": "cust-002",
+        "customerName": "Test Customer 2",
+        "customerPhone": "+919876543202",
+        "lastVisitDate": "2026-03-31",
+        "daysSinceLastVisit": 16,
+        "assignedTo": "usr-005",
+        "assignedToName": "Neha Reception",
+        "status": "CALLED",
+        "callNotes": "Asked to call back next week",
+        "nextCallbackDate": "2026-04-23",
+        "createdAt": "2026-04-01T09:00:00.000Z",
+        "updatedAt": "2026-04-10T09:00:00.000Z"
+      },
+      {
+        "id": "fu-003",
+        "customerId": "cust-003",
+        "customerName": "Test Customer 3",
+        "customerPhone": "+919876543203",
+        "lastVisitDate": "2026-03-30",
+        "daysSinceLastVisit": 17,
+        "assignedTo": "usr-005",
+        "assignedToName": "Neha Reception",
+        "status": "SCHEDULED",
+        "nextCallbackDate": "2026-04-23",
+        "createdAt": "2026-04-01T09:00:00.000Z",
+        "updatedAt": "2026-04-11T09:00:00.000Z"
+      },
+      {
+        "id": "fu-004",
+        "customerId": "cust-004",
+        "customerName": "Test Customer 4",
+        "customerPhone": "+919876543204",
+        "lastVisitDate": "2026-03-29",
+        "daysSinceLastVisit": 18,
+        "assignedTo": "usr-005",
+        "assignedToName": "Neha Reception",
+        "status": "NOT_INTERESTED",
+        "createdAt": "2026-04-01T09:00:00.000Z",
+        "updatedAt": "2026-04-12T09:00:00.000Z"
+      },
+      {
+        "id": "fu-005",
+        "customerId": "cust-005",
+        "customerName": "Test Customer 5",
+        "customerPhone": "+919876543205",
+        "lastVisitDate": "2026-03-28",
+        "daysSinceLastVisit": 19,
+        "assignedTo": "usr-005",
+        "assignedToName": "Neha Reception",
+        "status": "REENGAGED",
+        "createdAt": "2026-04-01T09:00:00.000Z",
+        "updatedAt": "2026-04-13T09:00:00.000Z"
+      }
+    ],
+    "serviceCategories": [
+      {
+        "id": "cat-001",
+        "name": "Wash & foam",
+        "slug": "wash",
+        "order": 1,
+        "bikeOnly": false
+      },
+      {
+        "id": "cat-002",
+        "name": "Interior care",
+        "slug": "interior",
+        "order": 2,
+        "bikeOnly": false
+      },
+      {
+        "id": "cat-003",
+        "name": "Paint protection",
+        "slug": "ppf",
+        "order": 3,
+        "bikeOnly": false
+      },
+      {
+        "id": "cat-004",
+        "name": "Engine bay",
+        "slug": "engine",
+        "order": 4,
+        "bikeOnly": false
+      },
+      {
+        "id": "cat-005",
+        "name": "Ceramic coating",
+        "slug": "ceramic",
+        "order": 5,
+        "bikeOnly": false
+      }
+    ],
+    "notifications": [
+      {
+        "id": "notif-001",
+        "type": "job_created",
+        "title": "Delhi \u2014 new job card",
+        "message": "JC-2026-101 received at Delhi.",
+        "read": false,
+        "href": "/job-cards/jc-001",
+        "branchId": "br-main",
+        "createdAt": "2026-04-10T08:00:00.000Z"
+      },
+      {
+        "id": "notif-002",
+        "type": "job_status",
+        "title": "Noida \u2014 status update",
+        "message": "JC-2026-102 moved to in progress at Noida.",
+        "read": false,
+        "href": "/job-cards/jc-002",
+        "branchId": "br-002",
+        "createdAt": "2026-04-11T08:00:00.000Z"
+      },
+      {
+        "id": "notif-003",
+        "type": "payment_received",
+        "title": "Delhi \u2014 payment received",
+        "message": "INV-2026-301 paid in full (Delhi).",
+        "read": false,
+        "href": "/billing/inv-001",
+        "branchId": "br-main",
+        "createdAt": "2026-04-12T08:00:00.000Z"
+      },
+      {
+        "id": "notif-004",
+        "type": "reminder",
+        "title": "Noida \u2014 service reminder",
+        "message": "Follow-up due for a Noida customer vehicle.",
+        "read": false,
+        "branchId": "br-002",
+        "createdAt": "2026-04-13T08:00:00.000Z"
+      },
+      {
+        "id": "notif-005",
+        "type": "customer_new",
+        "title": "Delhi \u2014 new customer",
+        "message": "Walk-in registered at Delhi branch.",
+        "read": true,
+        "branchId": "br-main",
+        "createdAt": "2026-04-14T08:00:00.000Z"
+      }
+    ],
+    "dashboardStats": {
+      "averageRating": 4.3,
+      "carsReceivedToday": 3,
+      "carsDeliveredToday": 2,
+      "inProgressServices": 4,
+      "dailyRevenue": 12500,
+      "totalExpensesToday": 2100,
+      "netProfitToday": 10400,
+      "newCustomersToday": 1,
+      "inactiveCustomers": 0,
+      "activeJobCards": 5,
+      "pendingPayments": 2,
+      "monthlyRevenue": [
+        {
+          "month": "2026-01",
+          "revenue": 92000,
+          "expenses": 23000,
+          "profit": 69000
+        },
+        {
+          "month": "2026-02",
+          "revenue": 104000,
+          "expenses": 26000,
+          "profit": 78000
+        },
+        {
+          "month": "2026-03",
+          "revenue": 116000,
+          "expenses": 29000,
+          "profit": 87000
+        },
+        {
+          "month": "2026-04",
+          "revenue": 128000,
+          "expenses": 32000,
+          "profit": 96000
+        },
+        {
+          "month": "2026-05",
+          "revenue": 140000,
+          "expenses": 35000,
+          "profit": 105000
+        }
+      ],
+      "serviceBreakdown": [
+        {
+          "name": "Exterior wash",
+          "count": 3
+        },
+        {
+          "name": "Full interior detail",
+          "count": 4
+        },
+        {
+          "name": "AC refresh",
+          "count": 5
+        },
+        {
+          "name": "Paint correction",
+          "count": 6
+        },
+        {
+          "name": "Ceramic coat",
+          "count": 7
+        }
+      ],
+      "todaysBookings": [
+        {
+          "id": "jc-001",
+          "jobNumber": "JC-2026-101",
+          "branchId": "br-main",
+          "customerId": "cust-001",
+          "customerName": "Test Customer 1",
+          "customerPhone": "+919876543201",
+          "vehicleId": "veh-001",
+          "vehicleRegNumber": "KA01AB1001",
+          "vehicleMakeModel": "Maruti Swift",
+          "vehicleSegment": "HATCHBACK",
+          "mechanicId": "usr-003",
+          "mechanicName": "Ravi Mechanic",
+          "status": "RECEIVED",
+          "reportedIssues": "Minor scratches on bumper",
+          "odometerReading": 12500,
+          "expectedDelivery": "2026-04-17T18:00:00.000Z",
+          "services": [
+            {
+              "id": "si-jc-001-1",
+              "jobCardId": "jc-001",
+              "serviceCatalogId": "srv-001",
+              "name": "Exterior wash",
+              "price": 950,
+              "isCompleted": true,
+              "completedAt": "2026-04-09T11:00:00.000Z",
+              "durationMinutes": 45
+            },
+            {
+              "id": "si-jc-001-2",
+              "jobCardId": "jc-001",
+              "serviceCatalogId": "srv-002",
+              "name": "Full interior detail",
+              "price": 1100,
+              "isCompleted": true,
+              "completedAt": "2026-04-10T11:00:00.000Z",
+              "durationMinutes": 50
+            },
+            {
+              "id": "si-jc-001-3",
+              "jobCardId": "jc-001",
+              "serviceCatalogId": "srv-003",
+              "name": "AC refresh",
+              "price": 1250,
+              "isCompleted": true,
+              "completedAt": "2026-04-11T11:00:00.000Z",
+              "durationMinutes": 55
+            },
+            {
+              "id": "si-jc-001-4",
+              "jobCardId": "jc-001",
+              "serviceCatalogId": "srv-004",
+              "name": "Paint correction",
+              "price": 1400,
+              "isCompleted": false,
+              "durationMinutes": 60
+            },
+            {
+              "id": "si-jc-001-5",
+              "jobCardId": "jc-001",
+              "serviceCatalogId": "srv-005",
+              "name": "Ceramic coat",
+              "price": 1550,
+              "isCompleted": false,
+              "durationMinutes": 65
+            }
+          ],
+          "estimatedAmount": 6250,
+          "incentivePercent": 10,
+          "incentiveAmount": 625,
+          "termsAndConditions": "Standard workshop T&C apply.",
+          "notes": "Seed job 1",
+          "createdBy": "usr-admin",
+          "createdAt": "2026-04-11T09:00:00.000Z",
+          "updatedAt": "2026-04-15T11:00:00.000Z"
+        },
+        {
+          "id": "jc-002",
+          "jobNumber": "JC-2026-102",
+          "branchId": "br-002",
+          "customerId": "cust-002",
+          "customerName": "Test Customer 2",
+          "customerPhone": "+919876543202",
+          "vehicleId": "veh-002",
+          "vehicleRegNumber": "KA01AB1002",
+          "vehicleMakeModel": "Hyundai i20",
+          "vehicleSegment": "SEDAN",
+          "mechanicId": "usr-004",
+          "mechanicName": "Sunil Mechanic",
+          "status": "INSPECTION",
+          "reportedIssues": "Routine service",
+          "odometerReading": 13000,
+          "expectedDelivery": "2026-04-18T18:00:00.000Z",
+          "services": [
+            {
+              "id": "si-jc-002-1",
+              "jobCardId": "jc-002",
+              "serviceCatalogId": "srv-002",
+              "name": "Full interior detail",
+              "price": 1100,
+              "isCompleted": false,
+              "durationMinutes": 45
+            }
+          ],
+          "estimatedAmount": 1100,
+          "incentivePercent": 10,
+          "incentiveAmount": 110,
+          "termsAndConditions": "Standard workshop T&C apply.",
+          "notes": "Seed job 2",
+          "createdBy": "usr-admin",
+          "createdAt": "2026-04-12T09:00:00.000Z",
+          "updatedAt": "2026-04-16T11:00:00.000Z"
+        }
+      ],
+      "readyForDelivery": [
+        {
+          "id": "jc-004",
+          "jobNumber": "JC-2026-104",
+          "branchId": "br-main",
+          "customerId": "cust-004",
+          "customerName": "Test Customer 4",
+          "customerPhone": "+919876543204",
+          "vehicleId": "veh-004",
+          "vehicleRegNumber": "KA01AB1004",
+          "vehicleMakeModel": "Tata Nexon",
+          "vehicleSegment": "COMPACT_SUV",
+          "mechanicId": "usr-004",
+          "mechanicName": "Sunil Mechanic",
+          "status": "QUALITY_CHECK",
+          "reportedIssues": "Routine service",
+          "odometerReading": 14000,
+          "expectedDelivery": "2026-04-20T18:00:00.000Z",
+          "services": [
+            {
+              "id": "si-jc-004-1",
+              "jobCardId": "jc-004",
+              "serviceCatalogId": "srv-004",
+              "name": "Paint correction",
+              "price": 1400,
+              "isCompleted": false,
+              "durationMinutes": 45
+            }
+          ],
+          "estimatedAmount": 1400,
+          "incentivePercent": 10,
+          "incentiveAmount": 140,
+          "termsAndConditions": "Standard workshop T&C apply.",
+          "notes": "Seed job 4",
+          "createdBy": "usr-admin",
+          "createdAt": "2026-04-14T09:00:00.000Z",
+          "updatedAt": "2026-04-18T11:00:00.000Z"
+        }
+      ]
+    },
+    "expenseMeta": {
+      "customCategories": [
+        "Detailing supplies",
+        "R&D"
+      ],
+      "categoryDescriptions": {
+        "RENT": "Shop rent",
+        "SUPPLIES": "Consumables"
+      },
+      "vendorSuggestions": [
+        "Acme Supplies",
+        "PowerCo",
+        "PrintShop"
+      ],
+      "vendorDirectory": [
+        {
+          "id": "vend-001",
+          "name": "Directory Vendor 1",
+          "contactPerson": "Contact 1",
+          "phone": "+918000001110",
+          "email": "vendor1@suppliers.test",
+          "paymentTerms": "Net 15",
+          "address": "1 Supply Street",
+          "gstNumber": "29ABCDE1234F1Z1"
+        },
+        {
+          "id": "vend-002",
+          "name": "Directory Vendor 2",
+          "contactPerson": "Contact 2",
+          "phone": "+918000001220",
+          "email": "vendor2@suppliers.test",
+          "paymentTerms": "Net 15",
+          "address": "2 Supply Street",
+          "gstNumber": "29ABCDE1234F2Z2"
+        },
+        {
+          "id": "vend-003",
+          "name": "Directory Vendor 3",
+          "contactPerson": "Contact 3",
+          "phone": "+918000001330",
+          "email": "vendor3@suppliers.test",
+          "paymentTerms": "Net 15",
+          "address": "3 Supply Street",
+          "gstNumber": "29ABCDE1234F3Z3"
+        },
+        {
+          "id": "vend-004",
+          "name": "Directory Vendor 4",
+          "contactPerson": "Contact 4",
+          "phone": "+918000001440",
+          "email": "vendor4@suppliers.test",
+          "paymentTerms": "Net 15",
+          "address": "4 Supply Street",
+          "gstNumber": "29ABCDE1234F4Z4"
+        },
+        {
+          "id": "vend-005",
+          "name": "Directory Vendor 5",
+          "contactPerson": "Contact 5",
+          "phone": "+918000001550",
+          "email": "vendor5@suppliers.test",
+          "paymentTerms": "Net 15",
+          "address": "5 Supply Street",
+          "gstNumber": "29ABCDE1234F5Z5"
+        }
+      ]
+    },
+    "cashBank": {
+      "accounts": [
+        {
+          "id": "acc-001",
+          "type": "cash",
+          "displayName": "Cash in Hand",
+          "balance": 65000,
+          "openingBalanceDate": "2026-01-16"
+        },
+        {
+          "id": "acc-002",
+          "type": "bank",
+          "displayName": "Bank account 2",
+          "balance": 80000,
+          "openingBalanceDate": "2026-01-16",
+          "bankMeta": {
+            "accountNumber": "0002112233",
+            "holderName": "Prime Detailers 2",
+            "ifsc": "HDFC020001",
+            "bankName": "HDFC Bank",
+            "branchName": "MG Road",
+            "upiId": "prime@hdfc"
+          }
+        },
+        {
+          "id": "acc-003",
+          "type": "bank",
+          "displayName": "Bank account 3",
+          "balance": 95000,
+          "openingBalanceDate": "2026-01-16",
+          "bankMeta": {
+            "accountNumber": "0003112233",
+            "holderName": "Prime Detailers 3",
+            "ifsc": "HDFC030001",
+            "bankName": "HDFC Bank",
+            "branchName": "MG Road"
+          }
+        },
+        {
+          "id": "acc-004",
+          "type": "bank",
+          "displayName": "Bank account 4",
+          "balance": 110000,
+          "openingBalanceDate": "2026-01-16",
+          "bankMeta": {
+            "accountNumber": "0004112233",
+            "holderName": "Prime Detailers 4",
+            "ifsc": "HDFC040001",
+            "bankName": "HDFC Bank",
+            "branchName": "MG Road"
+          }
+        },
+        {
+          "id": "acc-005",
+          "type": "bank",
+          "displayName": "Bank account 5",
+          "balance": 125000,
+          "openingBalanceDate": "2026-01-16",
+          "bankMeta": {
+            "accountNumber": "0005112233",
+            "holderName": "Prime Detailers 5",
+            "ifsc": "HDFC050001",
+            "bankName": "HDFC Bank",
+            "branchName": "MG Road"
+          }
+        }
+      ],
+      "transactions": [
+        {
+          "id": "cbtx-001",
+          "accountId": "acc-001",
+          "date": "2026-04-15",
+          "rowType": "OPENING",
+          "txnNo": "CB-501",
+          "party": "Party 1",
+          "received": 0,
+          "balanceAfter": 48000,
+          "notes": "Seed cash/bank 1"
+        },
+        {
+          "id": "cbtx-002",
+          "accountId": "acc-002",
+          "date": "2026-04-14",
+          "rowType": "ADJUST_ADD",
+          "txnNo": "CB-502",
+          "party": "Party 2",
+          "received": 2000,
+          "balanceAfter": 56000,
+          "notes": "Seed cash/bank 2"
+        },
+        {
+          "id": "cbtx-003",
+          "accountId": "acc-003",
+          "date": "2026-04-13",
+          "rowType": "ADJUST_ADD",
+          "txnNo": "CB-503",
+          "party": "Party 3",
+          "received": 3000,
+          "balanceAfter": 64000,
+          "notes": "Seed cash/bank 3"
+        },
+        {
+          "id": "cbtx-004",
+          "accountId": "acc-004",
+          "date": "2026-04-12",
+          "rowType": "ADJUST_ADD",
+          "txnNo": "CB-504",
+          "party": "Party 4",
+          "received": 4000,
+          "balanceAfter": 72000,
+          "notes": "Seed cash/bank 4"
+        },
+        {
+          "id": "cbtx-005",
+          "accountId": "acc-005",
+          "date": "2026-04-11",
+          "rowType": "ADJUST_ADD",
+          "txnNo": "CB-505",
+          "party": "Party 5",
+          "received": 5000,
+          "balanceAfter": 80000,
+          "notes": "Seed cash/bank 5"
+        }
+      ]
+    },
+    "payroll": {
+      "salaryStructures": [
+        {
+          "id": "ss-001",
+          "role": "MECHANIC",
+          "experienceBand": "ENTRY",
+          "label": "Band 1 seed",
+          "baseSalary": 20500,
+          "attendanceBonusPerDay": 160,
+          "absenceDeductionPerDay": 420
+        },
+        {
+          "id": "ss-002",
+          "role": "RECEPTIONIST",
+          "experienceBand": "MID",
+          "label": "Band 2 seed",
+          "baseSalary": 23000,
+          "attendanceBonusPerDay": 170,
+          "absenceDeductionPerDay": 440
+        },
+        {
+          "id": "ss-003",
+          "role": "BRANCH_MANAGER",
+          "experienceBand": "SENIOR",
+          "label": "Band 3 seed",
+          "baseSalary": 25500,
+          "attendanceBonusPerDay": 180,
+          "absenceDeductionPerDay": 460
+        },
+        {
+          "id": "ss-004",
+          "role": "SUPERVISOR",
+          "experienceBand": "LEAD",
+          "label": "Band 4 seed",
+          "baseSalary": 28000,
+          "attendanceBonusPerDay": 190,
+          "absenceDeductionPerDay": 480
+        },
+        {
+          "id": "ss-005",
+          "role": "ADMIN",
+          "experienceBand": "MID",
+          "label": "Band 5 seed",
+          "baseSalary": 30500,
+          "attendanceBonusPerDay": 200,
+          "absenceDeductionPerDay": 500
+        }
+      ],
+      "payrollRecords": [
+        {
+          "id": "pr-001",
+          "employeeId": "usr-admin",
+          "employeeName": "Administrator",
+          "branchId": "br-main",
+          "periodMonth": 4,
+          "periodYear": 2026,
+          "attendanceDays": 21,
+          "presencePayment": 2100,
+          "baseSalary": 22000,
+          "absenceDeduction": 200,
+          "grossEarnings": 27500,
+          "totalDeductions": 1600,
+          "netSalaryBeforeAdvance": 25900,
+          "advanceDeductionPlanned": 0,
+          "advanceDeductionFinalized": 0,
+          "advanceOutstandingBefore": 0,
+          "advanceOutstandingAfterPlanned": 0,
+          "advanceOutstandingAfterFinalized": 0,
+          "advanceRecoveryRefs": [],
+          "netSalary": 25900,
+          "status": "PAID",
+          "salaryStructureId": "ss-001",
+          "createdAt": "2026-04-01T10:00:00.000Z",
+          "updatedAt": "2026-04-10T10:00:00.000Z"
+        },
+        {
+          "id": "pr-002",
+          "employeeId": "usr-002",
+          "employeeName": "Priya Sharma",
+          "branchId": "br-002",
+          "periodMonth": 4,
+          "periodYear": 2026,
+          "attendanceDays": 20,
+          "presencePayment": 2200,
+          "baseSalary": 24000,
+          "absenceDeduction": 400,
+          "grossEarnings": 30000,
+          "totalDeductions": 1700,
+          "netSalaryBeforeAdvance": 28300,
+          "advanceDeductionPlanned": 0,
+          "advanceDeductionFinalized": 0,
+          "advanceOutstandingBefore": 0,
+          "advanceOutstandingAfterPlanned": 0,
+          "advanceOutstandingAfterFinalized": 0,
+          "advanceRecoveryRefs": [],
+          "netSalary": 28300,
+          "status": "PAID",
+          "salaryStructureId": "ss-002",
+          "createdAt": "2026-04-01T10:00:00.000Z",
+          "updatedAt": "2026-04-10T10:00:00.000Z"
+        },
+        {
+          "id": "pr-003",
+          "employeeId": "usr-003",
+          "employeeName": "Ravi Mechanic",
+          "branchId": "br-main",
+          "periodMonth": 4,
+          "periodYear": 2026,
+          "attendanceDays": 19,
+          "presencePayment": 2300,
+          "baseSalary": 26000,
+          "absenceDeduction": 600,
+          "grossEarnings": 32500,
+          "totalDeductions": 1800,
+          "netSalaryBeforeAdvance": 30700,
+          "advanceDeductionPlanned": 0,
+          "advanceDeductionFinalized": 0,
+          "advanceOutstandingBefore": 0,
+          "advanceOutstandingAfterPlanned": 0,
+          "advanceOutstandingAfterFinalized": 0,
+          "advanceRecoveryRefs": [],
+          "netSalary": 30700,
+          "status": "PAID",
+          "salaryStructureId": "ss-003",
+          "createdAt": "2026-04-01T10:00:00.000Z",
+          "updatedAt": "2026-04-10T10:00:00.000Z"
+        },
+        {
+          "id": "pr-004",
+          "employeeId": "usr-004",
+          "employeeName": "Sunil Mechanic",
+          "branchId": "br-main",
+          "periodMonth": 4,
+          "periodYear": 2026,
+          "attendanceDays": 18,
+          "presencePayment": 2400,
+          "baseSalary": 28000,
+          "absenceDeduction": 800,
+          "grossEarnings": 35000,
+          "totalDeductions": 1900,
+          "netSalaryBeforeAdvance": 33100,
+          "advanceDeductionPlanned": 0,
+          "advanceDeductionFinalized": 0,
+          "advanceOutstandingBefore": 0,
+          "advanceOutstandingAfterPlanned": 0,
+          "advanceOutstandingAfterFinalized": 0,
+          "advanceRecoveryRefs": [],
+          "netSalary": 33100,
+          "status": "PAID",
+          "salaryStructureId": "ss-004",
+          "createdAt": "2026-04-01T10:00:00.000Z",
+          "updatedAt": "2026-04-10T10:00:00.000Z"
+        },
+        {
+          "id": "pr-005",
+          "employeeId": "usr-005",
+          "employeeName": "Neha Reception",
+          "branchId": "br-main",
+          "periodMonth": 4,
+          "periodYear": 2026,
+          "attendanceDays": 17,
+          "presencePayment": 2500,
+          "baseSalary": 30000,
+          "absenceDeduction": 1000,
+          "grossEarnings": 37500,
+          "totalDeductions": 2000,
+          "netSalaryBeforeAdvance": 35500,
+          "advanceDeductionPlanned": 0,
+          "advanceDeductionFinalized": 0,
+          "advanceOutstandingBefore": 0,
+          "advanceOutstandingAfterPlanned": 0,
+          "advanceOutstandingAfterFinalized": 0,
+          "advanceRecoveryRefs": [],
+          "netSalary": 35500,
+          "status": "PENDING",
+          "salaryStructureId": "ss-005",
+          "createdAt": "2026-04-01T10:00:00.000Z",
+          "updatedAt": "2026-04-10T10:00:00.000Z"
+        }
+      ],
+      "salaryAdvances": [
+        {
+          "id": "sa-001",
+          "employeeId": "usr-admin",
+          "employeeName": "Administrator",
+          "branchId": "br-main",
+          "advanceAmount": 6000,
+          "advanceDate": "2026-03-22",
+          "monthlyDeductionAmount": 2000,
+          "recoveredAmount": 0,
+          "remainingAmount": 6000,
+          "status": "OPEN",
+          "notes": "Seed salary advance",
+          "createdAt": "2026-04-05T10:00:00.000Z",
+          "updatedAt": "2026-04-05T10:00:00.000Z"
+        },
+        {
+          "id": "sa-002",
+          "employeeId": "usr-002",
+          "employeeName": "Priya Sharma",
+          "branchId": "br-002",
+          "advanceAmount": 4500,
+          "advanceDate": "2026-03-30",
+          "recoveredAmount": 0,
+          "remainingAmount": 4500,
+          "status": "OPEN",
+          "createdAt": "2026-04-08T10:00:00.000Z",
+          "updatedAt": "2026-04-08T10:00:00.000Z"
+        }
+      ],
+      "salaryAdvanceRecoveries": []
+    },
+    "membership": {
+      "packages": [
+        {
+          "id": "mpkg-001",
+          "name": "Silver 1m",
+          "tier": "MONTHLY",
+          "price": 2499,
+          "includedServiceIds": [
+            "srv-001",
+            "srv-a01"
+          ],
+          "isActive": true,
+          "createdAt": "2026-03-01T10:00:00.000Z"
+        },
+        {
+          "id": "mpkg-002",
+          "name": "Gold 2m",
+          "tier": "QUARTERLY",
+          "price": 2999,
+          "includedServiceIds": [
+            "srv-002",
+            "srv-a02"
+          ],
+          "isActive": true,
+          "createdAt": "2026-03-02T10:00:00.000Z"
+        },
+        {
+          "id": "mpkg-003",
+          "name": "Platinum",
+          "tier": "YEARLY",
+          "price": 3499,
+          "includedServiceIds": [
+            "srv-003",
+            "srv-a03"
+          ],
+          "isActive": true,
+          "createdAt": "2026-03-03T10:00:00.000Z"
+        },
+        {
+          "id": "mpkg-004",
+          "name": "Bike care",
+          "tier": "MONTHLY",
+          "price": 3999,
+          "includedServiceIds": [
+            "srv-004",
+            "srv-a04"
+          ],
+          "isActive": true,
+          "createdAt": "2026-03-04T10:00:00.000Z"
+        },
+        {
+          "id": "mpkg-005",
+          "name": "Fleet lite",
+          "tier": "HALF_YEARLY",
+          "price": 4499,
+          "includedServiceIds": [
+            "srv-001",
+            "srv-a05"
+          ],
+          "isActive": true,
+          "createdAt": "2026-03-05T10:00:00.000Z"
+        }
+      ],
+      "subscriptions": [
+        {
+          "id": "msub-001",
+          "customerId": "cust-001",
+          "packageId": "mpkg-001",
+          "startDate": "2026-02-15",
+          "endDate": "2026-08-14",
+          "status": "ACTIVE",
+          "notes": "Active pass (vehicle) + 5 usage rows for MEMBERSHIP STATUS step",
+          "vehicleId": "veh-001",
+          "usageHistory": [
+            {
+              "usedAt": "2026-03-06T14:00:00.000Z",
+              "serviceCatalogId": "srv-001",
+              "serviceName": "Exterior wash",
+              "jobCardId": "jc-001"
+            },
+            {
+              "usedAt": "2026-03-07T14:00:00.000Z",
+              "serviceCatalogId": "srv-002",
+              "serviceName": "Full interior detail",
+              "jobCardId": "jc-001"
+            },
+            {
+              "usedAt": "2026-03-08T14:00:00.000Z",
+              "serviceCatalogId": "srv-003",
+              "serviceName": "AC refresh",
+              "jobCardId": "jc-001"
+            },
+            {
+              "usedAt": "2026-03-09T14:00:00.000Z",
+              "serviceCatalogId": "srv-004",
+              "serviceName": "Paint correction",
+              "jobCardId": "jc-001"
+            },
+            {
+              "usedAt": "2026-03-10T14:00:00.000Z",
+              "serviceCatalogId": "srv-005",
+              "serviceName": "Ceramic coat",
+              "jobCardId": "jc-001"
+            }
+          ]
+        },
+        {
+          "id": "msub-002",
+          "customerId": "cust-002",
+          "packageId": "mpkg-002",
+          "startDate": "2026-03-27",
+          "endDate": "2026-11-02",
+          "status": "ACTIVE",
+          "notes": "Second active subscription",
+          "vehicleId": "veh-002"
+        },
+        {
+          "id": "msub-003",
+          "customerId": "cust-003",
+          "packageId": "mpkg-003",
+          "startDate": "2025-03-12",
+          "endDate": "2026-03-17",
+          "status": "EXPIRED",
+          "notes": "Expired (no wizard active pass)",
+          "vehicleId": "veh-003"
+        },
+        {
+          "id": "msub-004",
+          "customerId": "cust-004",
+          "packageId": "mpkg-004",
+          "startDate": "2026-01-16",
+          "endDate": "2026-10-13",
+          "status": "CANCELLED",
+          "notes": "Cancelled",
+          "vehicleId": "veh-004"
+        },
+        {
+          "id": "msub-005",
+          "customerId": "cust-005",
+          "packageId": "mpkg-005",
+          "startDate": "2026-04-06",
+          "endDate": "2027-04-01",
+          "status": "ACTIVE",
+          "notes": "Customer-wide pass (no vehicleId)"
+        }
+      ]
+    }
+  }
+}

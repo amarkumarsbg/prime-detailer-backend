@@ -1,0 +1,16 @@
+# Local PostgreSQL for development (`npm run db:up` from backend/).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: prime
+      POSTGRES_PASSWORD: prime
+      POSTGRES_DB: primedetailer
+    ports:
+      - "5432:5432"
+    volumes:
+      - prime_detailer_pg:/var/lib/postgresql/data
+
+volumes:
+  prime_detailer_pg:

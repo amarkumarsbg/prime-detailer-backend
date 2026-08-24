@@ -1,0 +1,209 @@
+import type { Request, Response, NextFunction } from "express";
+import { z } from "zod";
+import type { UserRole } from "@prisma/client";
+import {
+  isArrayCollection,
+  isSingletonCollection,
+  SINGLETON_ENTITY_ID,
+} from "../../constants/json-collections.js";
+import { PAYROLL_ACCESS_ROLES } from "../../lib/rbac.js";
+import { persistBusinessLogoFile } from "../../services/object-storage.service.js";
+import {
+  assertPayloadEntityIdMatch,
+  parseCollectionPayload,
+  parseCollectionSnapshotItems,
+} from "../../validations/collection-payloads.js";
+import { ApiErrorCode } from "../../lib/app-error.js";
+import { intersectQueryBranchId, resolveBranchScope } from "../../lib/data-scope.js";
+import {
+  getCollectionDomainHandlers,
+  type CollectionWriteContext,
+} from "./collection.dispatcher.js";
+
+function forbidden(res: Response, message: string) {
+  res.status(403).json({
+    data: null,
+    error: { message, code: ApiErrorCode.FORBIDDEN },
+  });
+}
+
+function assertPayrollAccess(
+  res: Response,
+  collection: string,
+  role: UserRole | undefined
+): boolean {
+  if (collection !== "payroll") return true;
+  if (role && (PAYROLL_ACCESS_ROLES as readonly string[]).includes(role)) return true;
+  forbidden(res, "You do not have access to payroll data.");
+  return false;
+}
+
+function collectionParam(req: Request): string {
+  const raw = req.params.collection;
+  return Array.isArray(raw) ? raw[0]! : raw!;
+}
+
+function entityParam(req: Request): string {
+  const raw = req.params.entityId;
+  return Array.isArray(raw) ? raw[0]! : raw!;
+}
+
+function writeContext(req: Request, organizationId: string): CollectionWriteContext {
+  const hasJobCardPricingPermission = Boolean(
+    req.auth &&
+      (req.auth.role === "SUPER_ADMIN" || req.auth.permissions?.includes("JOB_CARD_PRICING"))
+  );
+  return { organizationId, hasJobCardPricingPermission };
+}
+
+export async function getCollection(req: Request, res: Response, next: NextFunction) {
+  try {
+    const collection = collectionParam(req);
+    if (!isArrayCollection(collection) && !isSingletonCollection(collection)) {
+      res.status(400).json({ data: null, error: { message: "Unknown collection" } });
+      return;
+    }
+    if (!assertPayrollAccess(res, collection, req.auth?.role)) return;
+
+    if (!req.auth) {
+      res.status(401).json({ data: null, error: { message: "Unauthorized" } });
+      return;
+    }
+    const scope = await resolveBranchScope(req.auth);
+    if (!scope) {
+      res.json({ data: { items: [] }, error: null });
+      return;
+    }
+    const q = typeof req.query.branchId === "string" ? req.query.branchId : undefined;
+    const allowedBranchIds = intersectQueryBranchId(scope, q);
+
+    const domain = getCollectionDomainHandlers(collection);
+    const items = await domain.list(scope.organizationId, allowedBranchIds);
+    res.json({ data: { items }, error: null });
+  } catch (e) {
+    next(e);
+  }
+}
+
+const snapshotSchema = z.object({
+  items: z.array(z.unknown()),
+});
+
+export async function postSnapshot(req: Request, res: Response, next: NextFunction) {
+  try {
+    const collection = collectionParam(req);
+    if (!isArrayCollection(collection)) {
+      res.status(400).json({ data: null, error: { message: "Snapshot only for array collections" } });
+      return;
+    }
+    if (!assertPayrollAccess(res, collection, req.auth?.role)) return;
+    if (!req.auth) {
+      res.status(401).json({ data: null, error: { message: "Unauthorized" } });
+      return;
+    }
+    const scope = await resolveBranchScope(req.auth);
+    if (!scope) {
+      forbidden(res, "Organization not found on user");
+      return;
+    }
+    const body = snapshotSchema.parse(req.body);
+    const items = parseCollectionSnapshotItems(collection, body.items);
+
+    const domain = getCollectionDomainHandlers(collection);
+    await domain.replace(items, writeContext(req, scope.organizationId));
+    res.json({ data: { ok: true }, error: null });
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function putCollectionItem(req: Request, res: Response, next: NextFunction) {
+  try {
+    const collection = collectionParam(req);
+    const entityId = entityParam(req);
+    if (!isArrayCollection(collection) && !isSingletonCollection(collection)) {
+      res.status(400).json({
+        data: null,
+        error: { message: "Unknown collection", code: ApiErrorCode.VALIDATION },
+      });
+      return;
+    }
+    if (isSingletonCollection(collection) && entityId !== SINGLETON_ENTITY_ID) {
+      res.status(400).json({
+        data: null,
+        error: { message: "Invalid singleton id", code: ApiErrorCode.VALIDATION },
+      });
+      return;
+    }
+    if (!assertPayrollAccess(res, collection, req.auth?.role)) return;
+    if (!req.auth) {
+      res.status(401).json({ data: null, error: { message: "Unauthorized" } });
+      return;
+    }
+    const scope = await resolveBranchScope(req.auth);
+    if (!scope) {
+      forbidden(res, "Organization not found on user");
+      return;
+    }
+    const payload = parseCollectionPayload(collection, req.body);
+    assertPayloadEntityIdMatch(collection, entityId, payload);
+
+    const domain = getCollectionDomainHandlers(collection);
+    await domain.upsert(entityId, payload, writeContext(req, scope.organizationId));
+    res.json({ data: { ok: true }, error: null });
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function deleteCollectionRow(req: Request, res: Response, next: NextFunction) {
+  try {
+    const collection = collectionParam(req);
+    const entityId = entityParam(req);
+    if (!isArrayCollection(collection)) {
+      res.status(400).json({ data: null, error: { message: "Delete only for array collections" } });
+      return;
+    }
+    if (!assertPayrollAccess(res, collection, req.auth?.role)) return;
+    if (!req.auth) {
+      res.status(401).json({ data: null, error: { message: "Unauthorized" } });
+      return;
+    }
+    const scope = await resolveBranchScope(req.auth);
+    if (!scope) {
+      forbidden(res, "Organization not found on user");
+      return;
+    }
+    const domain = getCollectionDomainHandlers(collection);
+    const ok = await domain.delete(scope.organizationId, entityId);
+    if (!ok) {
+      res.status(404).json({ data: null, error: { message: "Not found" } });
+      return;
+    }
+    res.json({ data: { ok: true }, error: null });
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function postAppSettingsLogo(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.auth) {
+      res.status(401).json({ data: null, error: { message: "Unauthorized" } });
+      return;
+    }
+    const file = req.file;
+    if (!file?.buffer) {
+      res.status(400).json({ data: null, error: { message: "No image file provided." } });
+      return;
+    }
+    const url = await persistBusinessLogoFile({
+      buffer: file.buffer,
+      mimeType: file.mimetype,
+      uploadedBy: req.auth.id,
+    });
+    res.json({ data: { url }, error: null });
+  } catch (e) {
+    next(e);
+  }
+}
