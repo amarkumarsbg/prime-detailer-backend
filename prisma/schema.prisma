@@ -254,6 +254,8 @@ model User {
   isActive               Boolean      @default(true)
   emailVerified          Boolean      @default(false)
   attendancePin          String?
+  isAttendanceTracked    Boolean      @default(true)
+  baseSalary             Float?
   totalJobsCompleted     Int?
   totalIncentiveEarned   Int?
   birthday               String?

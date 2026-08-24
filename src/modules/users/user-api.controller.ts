@@ -53,6 +53,8 @@ const createUserBodySchema = z.object({
   isActive: z.boolean().optional(),
   emailVerified: z.boolean().optional(),
   attendancePin: z.string().nullable().optional(),
+  isAttendanceTracked: z.boolean().optional(),
+  baseSalary: z.number().nullable().optional(),
   totalJobsCompleted: z.number().nullable().optional(),
   totalIncentiveEarned: z.number().nullable().optional(),
   birthday: z.string().nullable().optional(),

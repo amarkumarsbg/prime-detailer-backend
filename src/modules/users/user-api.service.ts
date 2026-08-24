@@ -61,6 +61,8 @@ export function toApiUser(u: PrismaUser) {
     isActive: u.isActive,
     emailVerified: u.emailVerified || undefined,
     attendancePin: u.attendancePin ?? undefined,
+    isAttendanceTracked: u.isAttendanceTracked,
+    baseSalary: u.baseSalary ?? undefined,
     totalJobsCompleted: u.totalJobsCompleted ?? undefined,
     totalIncentiveEarned: u.totalIncentiveEarned ?? undefined,
     birthday: u.birthday ?? undefined,
@@ -138,6 +140,8 @@ export async function createUserApi(input: {
   isActive?: boolean;
   emailVerified?: boolean;
   attendancePin?: string | null;
+  isAttendanceTracked?: boolean;
+  baseSalary?: number | null;
   totalJobsCompleted?: number | null;
   totalIncentiveEarned?: number | null;
   birthday?: string | null;
@@ -184,6 +188,8 @@ export async function createUserApi(input: {
     isActive: input.isActive ?? true,
     emailVerified: input.emailVerified ?? false,
     attendancePin: input.attendancePin ?? null,
+    isAttendanceTracked: input.isAttendanceTracked ?? true,
+    baseSalary: input.baseSalary ?? null,
     totalJobsCompleted: input.totalJobsCompleted ?? null,
     totalIncentiveEarned: input.totalIncentiveEarned ?? null,
     birthday: nullIfEmpty(input.birthday) ?? null,
@@ -223,6 +229,8 @@ export async function updateUserApi(
     isActive: boolean;
     emailVerified: boolean;
     attendancePin: string | null;
+    isAttendanceTracked: boolean;
+    baseSalary: number | null;
     totalJobsCompleted: number | null;
     totalIncentiveEarned: number | null;
     birthday: string | null;
