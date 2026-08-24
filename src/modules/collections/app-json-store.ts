@@ -12,6 +12,17 @@ import {
 import { applyCollectionBranchScope } from "../../lib/data-scope.js";
 import { AppError } from "../../lib/app-error.js";
 
+function isPickupDropWriteBlocked(): boolean {
+  const raw = process.env.BLOCK_PICKUP_DROP_WRITES?.trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes";
+}
+
+function assertCollectionWriteAllowed(collection: string): void {
+  if (collection !== "pickupDropRequests") return;
+  if (!isPickupDropWriteBlocked()) return;
+  throw AppError.forbidden("Pickup/Drop writes are temporarily blocked.");
+}
+
 export type ListCollectionOpts = {
   /** When set, only return rows for this organization. */
   organizationId?: string;
@@ -77,6 +88,8 @@ export async function upsertCollectionItem(
   payload: unknown,
   organizationId: string
 ): Promise<void> {
+  assertCollectionWriteAllowed(collection);
+
   const existing = await prisma.appJsonRow.findUnique({
     where: { collection_entityId: { collection, entityId } },
     select: { organizationId: true },
@@ -123,6 +136,8 @@ export async function replaceCollectionArray(
   items: { id: string }[],
   organizationId: string
 ): Promise<void> {
+  assertCollectionWriteAllowed(collection);
+
   if (!isArrayCollection(collection)) {
     throw new Error("replaceCollectionArray only for array collections");
   }
