@@ -25,6 +25,7 @@ import { organizationRouter } from "./modules/organization/organization.routes.j
 import { platformRouter } from "./modules/platform/platform.routes.js";
 import { jobsRouter } from "./modules/jobs/jobs.routes.js";
 import { isSwaggerEnabled, registerSwagger } from "./docs/register-swagger.js";
+import { publicRouter } from "./routes/public.routes.js";
 
 import { prisma } from "./lib/prisma.js";
 import { getPublicInvoiceView } from "./modules/invoices/public-invoice.service.js";
@@ -205,6 +206,7 @@ app.use("/api/branches", branchApiRouter);
 app.use("/api/users", userApiRouter);
 app.use("/api/vehicles", vehicleApiRouter);
 app.use("/api/messaging", messagingRouter);
+app.use("/api/public", publicRouter);
 app.use("/api/public/attendance", publicAttendanceRouter);
 app.use("/api/attendance", attendanceRouter);
 app.use("/api/parties", partyRouter);

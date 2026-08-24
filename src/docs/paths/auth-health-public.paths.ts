@@ -392,6 +392,132 @@ export const publicPaths: OpenApiPaths = {
       },
     },
   },
+  "/api/public/signup": {
+    post: {
+      tags: ["Public"],
+      summary: "Submit public signup lead",
+      description:
+        "No auth. Captures inbound signup intent for follow-up by the platform team. Rate-limited by IP.",
+      security: [],
+      requestBody: jsonBody({
+        type: "object",
+        required: ["name", "email", "phone", "companyName"],
+        properties: {
+          name: { type: "string", minLength: 1, maxLength: 120 },
+          email: { type: "string", format: "email" },
+          phone: { type: "string", minLength: 7, maxLength: 20 },
+          companyName: { type: "string", minLength: 1, maxLength: 160 },
+          message: { type: "string", maxLength: 2000 },
+          source: { type: "string", maxLength: 80 },
+        },
+      }),
+      responses: {
+        "201": okResponse({
+          type: "object",
+          properties: {
+            ok: { type: "boolean" },
+            id: { type: "string" },
+          },
+          required: ["ok", "id"],
+        }),
+        "429": { description: "Too many requests" },
+        ...commonErrorResponses(),
+      },
+    },
+  },
+  "/api/public/contact": {
+    post: {
+      tags: ["Public"],
+      summary: "Submit public contact request",
+      description:
+        "No auth. Captures customer/support/contact-us enquiries. Rate-limited by IP.",
+      security: [],
+      requestBody: jsonBody({
+        type: "object",
+        required: ["name", "message"],
+        properties: {
+          name: { type: "string", minLength: 1, maxLength: 120 },
+          email: { type: "string", format: "email" },
+          phone: { type: "string", minLength: 7, maxLength: 20 },
+          subject: { type: "string", maxLength: 200 },
+          message: { type: "string", minLength: 1, maxLength: 2000 },
+          source: { type: "string", maxLength: 80 },
+        },
+      }),
+      responses: {
+        "201": okResponse({
+          type: "object",
+          properties: {
+            ok: { type: "boolean" },
+            id: { type: "string" },
+          },
+          required: ["ok", "id"],
+        }),
+        "429": { description: "Too many requests" },
+        ...commonErrorResponses(),
+      },
+    },
+  },
+  "/api/public/pricing/quote": {
+    post: {
+      tags: ["Public"],
+      summary: "Get anonymous subscription pricing quote",
+      description:
+        "No auth. Returns pricing for public calculator use. Rate-limited by IP.",
+      security: [],
+      requestBody: jsonBody({
+        type: "object",
+        required: ["termMonths"],
+        properties: {
+          planCode: {
+            type: "string",
+            enum: ["STARTER", "GROWTH", "BUSINESS", "ENTERPRISE", "CUSTOM"],
+            default: "STARTER",
+          },
+          termMonths: { type: "integer", enum: [12, 24, 36, 60] },
+          extraBranches: { type: "integer", minimum: 0, default: 0 },
+          extraUsers: { type: "integer", minimum: 0, default: 0 },
+          referralCode: { type: "string", nullable: true, maxLength: 32 },
+          isFirstSubscription: { type: "boolean", default: true },
+        },
+      }),
+      responses: {
+        "200": okResponse({ type: "object", additionalProperties: true }),
+        "429": { description: "Too many requests" },
+        ...commonErrorResponses(),
+      },
+    },
+  },
+  "/api/public/subscription/pricing": {
+    post: {
+      tags: ["Public"],
+      summary: "Get anonymous subscription pricing quote (alias)",
+      description:
+        "Alias of /api/public/pricing/quote for compatibility.",
+      security: [],
+      requestBody: jsonBody({
+        type: "object",
+        required: ["termMonths"],
+        properties: {
+          planCode: {
+            type: "string",
+            enum: ["STARTER", "GROWTH", "BUSINESS", "ENTERPRISE", "CUSTOM"],
+            default: "STARTER",
+          },
+          termMonths: { type: "integer", enum: [12, 24, 36, 60] },
+          extraBranches: { type: "integer", minimum: 0, default: 0 },
+          extraUsers: { type: "integer", minimum: 0, default: 0 },
+          referralCode: { type: "string", nullable: true, maxLength: 32 },
+          isFirstSubscription: { type: "boolean", default: true },
+        },
+      }),
+      responses: {
+        "200": okResponse({ type: "object", additionalProperties: true }),
+        "429": { description: "Too many requests" },
+        ...commonErrorResponses(),
+      },
+    },
+  },
   "/api/public/attendance/context": {
     get: {
       tags: ["Attendance"],

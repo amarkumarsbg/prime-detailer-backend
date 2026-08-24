@@ -1,0 +1,198 @@
+import type { Request, Response, NextFunction } from "express";
+import { z } from "zod";
+import { prisma } from "../lib/prisma.js";
+import { PLAN_CATALOG } from "../lib/plan-catalog.js";
+import { calculateSubscriptionPricing } from "../lib/subscription-pricing.js";
+
+type LimiterState = { count: number; resetAt: number };
+
+const inMemoryLimiter = new Map<string, LimiterState>();
+
+function getClientIp(req: Request): string {
+  const fwd = req.headers["x-forwarded-for"];
+  if (typeof fwd === "string" && fwd.trim()) {
+    return fwd.split(",")[0]?.trim() || "unknown";
+  }
+  if (Array.isArray(fwd) && fwd[0]) return String(fwd[0]);
+  return req.ip || "unknown";
+}
+
+function enforceRateLimit(req: Request, scope: string, maxPerWindow: number, windowMs: number): boolean {
+  const ip = getClientIp(req);
+  const now = Date.now();
+  const key = `${scope}:${ip}`;
+  const existing = inMemoryLimiter.get(key);
+
+  if (!existing || now >= existing.resetAt) {
+    inMemoryLimiter.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+
+  if (existing.count >= maxPerWindow) {
+    return false;
+  }
+
+  existing.count += 1;
+  inMemoryLimiter.set(key, existing);
+  return true;
+}
+
+async function resolveLeadOrganizationId(): Promise<string | null> {
+  const byDefaultId = await prisma.organization.findUnique({
+    where: { id: "org-default" },
+    select: { id: true },
+  });
+  if (byDefaultId?.id) return byDefaultId.id;
+
+  const first = await prisma.organization.findFirst({
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+  return first?.id ?? null;
+}
+
+const signupSchema = z.object({
+  name: z.string().min(1).max(120),
+  email: z.string().email(),
+  phone: z.string().min(7).max(20),
+  companyName: z.string().min(1).max(160),
+  message: z.string().max(2000).optional(),
+  source: z.string().max(80).optional(),
+});
+
+const contactSchema = z.object({
+  name: z.string().min(1).max(120),
+  email: z.string().email().optional(),
+  phone: z.string().min(7).max(20).optional(),
+  subject: z.string().max(200).optional(),
+  message: z.string().min(1).max(2000),
+  source: z.string().max(80).optional(),
+});
+
+const publicPricingSchema = z.object({
+  planCode: z.enum(["STARTER", "GROWTH", "BUSINESS", "ENTERPRISE", "CUSTOM"]).default("STARTER"),
+  termMonths: z.union([z.literal(12), z.literal(24), z.literal(36), z.literal(60)]),
+  extraBranches: z.number().int().nonnegative().default(0),
+  extraUsers: z.number().int().nonnegative().default(0),
+  referralCode: z.string().max(32).nullable().optional(),
+  isFirstSubscription: z.boolean().optional(),
+});
+
+export async function postPublicSignup(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!enforceRateLimit(req, "public-signup", 10, 10 * 60_000)) {
+      res.status(429).json({
+        data: null,
+        error: { message: "Too many signup requests. Please try again in a few minutes." },
+      });
+      return;
+    }
+
+    const body = signupSchema.parse(req.body ?? {});
+    const organizationId = await resolveLeadOrganizationId();
+    if (!organizationId) {
+      res.status(503).json({
+        data: null,
+        error: { message: "Service is temporarily unavailable." },
+      });
+      return;
+    }
+
+    const id = `signup-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    await prisma.appJsonRow.create({
+      data: {
+        collection: "publicSignups",
+        entityId: id,
+        organizationId,
+        payload: {
+          id,
+          ...body,
+          email: body.email.trim().toLowerCase(),
+          phone: body.phone.trim(),
+          createdAt: new Date().toISOString(),
+          ip: getClientIp(req),
+          userAgent: req.headers["user-agent"] ?? null,
+        },
+      },
+    });
+
+    res.status(201).json({ data: { ok: true, id }, error: null });
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function postPublicContact(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!enforceRateLimit(req, "public-contact", 20, 10 * 60_000)) {
+      res.status(429).json({
+        data: null,
+        error: { message: "Too many contact requests. Please try again in a few minutes." },
+      });
+      return;
+    }
+
+    const body = contactSchema.parse(req.body ?? {});
+    const organizationId = await resolveLeadOrganizationId();
+    if (!organizationId) {
+      res.status(503).json({
+        data: null,
+        error: { message: "Service is temporarily unavailable." },
+      });
+      return;
+    }
+
+    const id = `contact-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    await prisma.appJsonRow.create({
+      data: {
+        collection: "publicContacts",
+        entityId: id,
+        organizationId,
+        payload: {
+          id,
+          ...body,
+          email: body.email?.trim().toLowerCase(),
+          phone: body.phone?.trim(),
+          createdAt: new Date().toISOString(),
+          ip: getClientIp(req),
+          userAgent: req.headers["user-agent"] ?? null,
+        },
+      },
+    });
+
+    res.status(201).json({ data: { ok: true, id }, error: null });
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function postPublicPricingQuote(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!enforceRateLimit(req, "public-pricing", 60, 10 * 60_000)) {
+      res.status(429).json({
+        data: null,
+        error: { message: "Too many pricing quote requests. Please try again shortly." },
+      });
+      return;
+    }
+
+    const body = publicPricingSchema.parse(req.body ?? {});
+    const plan = PLAN_CATALOG[body.planCode];
+    const breakdown = calculateSubscriptionPricing({
+      planCode: plan.planCode,
+      planName: plan.planName,
+      limits: plan.limits,
+      isFirstSubscription: body.isFirstSubscription ?? true,
+      payload: {
+        termMonths: body.termMonths,
+        extraBranches: body.extraBranches,
+        extraUsers: body.extraUsers,
+        referralCode: body.referralCode ?? null,
+      },
+    });
+
+    res.json({ data: { breakdown }, error: null });
+  } catch (e) {
+    next(e);
+  }
+}
