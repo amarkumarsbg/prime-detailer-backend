@@ -5,6 +5,7 @@ import { createDocumentCollectionService } from "./document-collection.service.j
 import * as jobCards from "../job-cards/job-cards.service.js";
 import * as invoices from "../invoices/invoices.service.js";
 import * as quotations from "../quotations/quotations.service.js";
+import * as appointments from "../appointments/appointments.service.js";
 
 export type CollectionWriteContext = {
   organizationId: string;
@@ -73,6 +74,15 @@ export function getCollectionDomainHandlers(collection: string): CollectionDomai
       upsert: (id, payload, ctx) => quotations.upsertQuotation(ctx.organizationId, id, payload),
       delete: (orgId, id) => quotations.deleteQuotation(orgId, id),
       replace: (items, ctx) => quotations.replaceQuotations(ctx.organizationId, items),
+    };
+  }
+  if (collection === "appointments") {
+    return {
+      list: (orgId, allowed) => appointments.listAppointments(orgId, allowed),
+      get: (orgId, id) => appointments.getAppointment(orgId, id),
+      upsert: (id, payload, ctx) => appointments.upsertAppointment(ctx.organizationId, id, payload),
+      delete: (orgId, id) => appointments.deleteAppointment(orgId, id),
+      replace: (items, ctx) => appointments.replaceAppointments(ctx.organizationId, items),
     };
   }
   return asDocumentHandlers(collection);

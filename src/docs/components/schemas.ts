@@ -316,6 +316,8 @@ export const schemaComponents = {
       priceGrandTotal: { type: "number" },
       advancePaid: { type: "number" },
       customerAddress: { type: "string" },
+      vehiclePickupRequired: { type: "boolean", nullable: true },
+      vehiclePickupStatus: { type: "string", nullable: true },
     },
     additionalProperties: true,
   },

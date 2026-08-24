@@ -61,6 +61,7 @@ model Organization {
   users             User[]
   customers         Customer[]
   vehicles          Vehicle[]
+  appointments      Appointment[]
   parties           Party[]
   appJsonRows       AppJsonRow[]
   platformAuditLogs PlatformAuditLog[]
@@ -454,9 +455,55 @@ model PartyHidden {
 }
 
 /**
+ * Relational mirror for appointments/bookings previously stored only in AppJsonRow.
+ * `kind` and `status` remain stringly typed to preserve legacy payload compatibility.
+ */
+model Appointment {
+  id                    String       @id
+  organizationId        String
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bookingId             String?
+  appointmentNumber     String?
+  kind                  String?
+  branchId              String?
+  customerId            String?
+  customerName          String?
+  customerPhone         String?
+  vehicleId             String?
+  vehicleRegNumber      String?
+  vehicleMakeModel      String?
+  serviceType           String?
+  mechanicId            String?
+  mechanicName          String?
+  date                  String?
+  time                  String?
+  status                String?
+  jobCardId             String?
+  notes                 String?
+  whatsappSent          Boolean?
+  reminderSent          Boolean?
+  priceGrandTotal       Float?
+  advancePaid           Float?
+  customerAddress       String?
+  vehiclePickupRequired Boolean?
+  vehiclePickupStatus   String?
+  payload               Json?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  @@index([organizationId, date])
+  @@index([organizationId, branchId])
+  @@index([organizationId, customerId])
+  @@index([organizationId, vehicleId])
+}
+
+/**
  * JSON documents keyed by collection name + entity id (e.g. jobCards / jc-001).
  * `organizationId` scopes rows per tenant (Phase 5). PK stays (collection, entityId);
  * entity ids must remain globally unique across orgs (enforced on write).
+ * Appointment rows (`collection=appointments`) may include:
+ * - `vehiclePickupRequired` (Boolean | null)
+ * - `vehiclePickupStatus` (String | null)
  */
 model AppJsonRow {
   collection     String

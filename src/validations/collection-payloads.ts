@@ -58,6 +58,14 @@ export const quotationPayloadSchema = z
   })
   .passthrough();
 
+export const appointmentPayloadSchema = z
+  .object({
+    id: nonEmptyString,
+    vehiclePickupRequired: z.boolean().nullable().optional(),
+    vehiclePickupStatus: z.string().nullable().optional(),
+  })
+  .passthrough();
+
 /** Singleton payroll document (`entityId = default`). */
 export const payrollPayloadSchema = z
   .object({
@@ -179,6 +187,7 @@ const COLLECTION_PAYLOAD_SCHEMAS: Record<string, z.ZodType<object>> = {
   invoices: invoicePayloadSchema,
   jobCards: jobCardPayloadSchema,
   quotations: quotationPayloadSchema,
+  appointments: appointmentPayloadSchema,
   payroll: payrollPayloadSchema,
   membership: membershipPayloadSchema,
   leaveConfig: leaveConfigPayloadSchema,

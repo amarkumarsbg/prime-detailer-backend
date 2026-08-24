@@ -7,7 +7,14 @@ import { ZodError } from "zod";
 import { parseCollectionPayload } from "../src/validations/collection-payloads.js";
 
 const prisma = new PrismaClient();
-const COLLECTIONS = ["invoices", "jobCards", "quotations", "payroll", "membership"] as const;
+const COLLECTIONS = [
+  "invoices",
+  "jobCards",
+  "quotations",
+  "appointments",
+  "payroll",
+  "membership",
+] as const;
 
 async function main() {
   let failures = 0;
