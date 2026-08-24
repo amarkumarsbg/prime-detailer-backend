@@ -41,8 +41,8 @@ async function processOneOrg(organizationId: string): Promise<ProcessOrgReminder
   ]);
 
   const settings = parseAppSettingsPayload(settingsRaw);
-  const reminders = asReminderRecords(reminderItems);
-  const invoices = asInvoices(invoiceItems);
+  const reminders = asReminderRecords(Array.isArray(reminderItems) ? reminderItems : reminderItems.items);
+  const invoices = asInvoices(Array.isArray(invoiceItems) ? invoiceItems : invoiceItems.items);
 
   if (!settings.whatsappReminderEnabled) {
     return {

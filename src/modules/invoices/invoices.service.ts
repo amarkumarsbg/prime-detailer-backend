@@ -15,6 +15,7 @@ import {
 } from "../../lib/gst-settings.js";
 import { handleInvoiceWalletSync } from "./wallet-sync.service.js";
 import { prisma } from "../../lib/prisma.js";
+import { Prisma } from "@prisma/client";
 import { AppError } from "../../lib/app-error.js";
 import {
   invoiceCarriesReferral,
@@ -43,6 +44,7 @@ async function applyInvoiceReferralGuard(
 
   const customer = await prisma.customer.findFirst({
     where: { id: customerId, organizationId },
+    select: { id: true, createdAt: true, totalVisits: true, referredBy: true },
   });
   if (!customer) {
     throw AppError.validation(REFERRAL_EXISTING_CUSTOMER_MESSAGE);
@@ -50,23 +52,26 @@ async function applyInvoiceReferralGuard(
 
   const invoiceId = typeof next.id === "string" ? next.id : "";
   const jobCardId = typeof next.jobCardId === "string" ? next.jobCardId : "";
-  const invoices = await listCollectionItems("invoices", { organizationId });
-  const otherInvoiceCount = invoices.filter((row) => {
-    if (!row || typeof row !== "object") return false;
-    const inv = row as { id?: string; customerId?: string };
-    if (inv.customerId !== customerId) return false;
-    if (invoiceId && inv.id === invoiceId) return false;
-    return true;
-  }).length;
 
-  const jobCards = await listCollectionItems("jobCards", { organizationId });
-  const otherJobCardCount = jobCards.filter((row) => {
-    if (!row || typeof row !== "object") return false;
-    const job = row as { id?: string; customerId?: string };
-    if (job.customerId !== customerId) return false;
-    if (jobCardId && job.id === jobCardId) return false;
-    return true;
-  }).length;
+  // Use COUNT queries with JSON operators instead of loading entire collections.
+  const [otherInvoiceCountResult, otherJobCardCountResult] = await Promise.all([
+    prisma.$queryRaw<[{ count: bigint }]>`
+      SELECT COUNT(*)::bigint AS count FROM "AppJsonRow"
+      WHERE collection = 'invoices'
+        AND "organizationId" = ${organizationId}
+        AND payload->>'customerId' = ${customerId}
+        ${invoiceId ? Prisma.sql`AND "entityId" != ${invoiceId}` : Prisma.empty}
+    `,
+    prisma.$queryRaw<[{ count: bigint }]>`
+      SELECT COUNT(*)::bigint AS count FROM "AppJsonRow"
+      WHERE collection = 'jobCards'
+        AND "organizationId" = ${organizationId}
+        AND payload->>'customerId' = ${customerId}
+        ${jobCardId ? Prisma.sql`AND "entityId" != ${jobCardId}` : Prisma.empty}
+    `,
+  ]);
+  const otherInvoiceCount = Number(otherInvoiceCountResult[0]?.count ?? 0);
+  const otherJobCardCount = Number(otherJobCardCountResult[0]?.count ?? 0);
 
   const isNewCustomer = isNewCustomerForReferral({
     createdAt: customer.createdAt,
@@ -83,9 +88,18 @@ async function applyInvoiceReferralGuard(
 
 export async function listInvoices(
   organizationId: string,
-  allowedBranchIds?: string[] | null
+  allowedBranchIds?: string[] | null,
+  opts?: { page?: number; pageSize?: number }
 ) {
-  return listCollectionItems("invoices", { organizationId, allowedBranchIds });
+  // Strip the `storedPdf` field from list payloads — PDFs are large base64 blobs
+  // (~500KB each) and are only needed on the individual invoice GET, not on list views.
+  // This dramatically reduces network transfer for the list endpoint.
+  return listCollectionItems("invoices", {
+    organizationId,
+    allowedBranchIds,
+    ...opts,
+    stripPayloadFields: ["storedPdf"],
+  });
 }
 
 export async function getInvoice(organizationId: string, entityId: string) {
@@ -114,7 +128,8 @@ export async function replaceInvoices(
   items: { id: string }[]
 ): Promise<void> {
   const gstStatus = await getOrgGstRegistrationStatus(organizationId);
-  const existing = await listCollectionItems("invoices", { organizationId });
+  const existingRaw = await listCollectionItems("invoices", { organizationId });
+  const existing = Array.isArray(existingRaw) ? existingRaw : existingRaw.items;
   const prevById = new Map<string, unknown>();
   for (const row of existing) {
     if (row && typeof row === "object" && typeof (row as { id?: string }).id === "string") {

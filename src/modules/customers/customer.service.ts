@@ -50,18 +50,39 @@ export function toApiCustomer(row: CustomerRow) {
 export async function listCustomers(opts?: {
   organizationId: string;
   customerIds?: Set<string> | null;
+  page?: number;
+  pageSize?: number;
 }) {
   if (!opts?.organizationId) return [];
   if (opts.customerIds && opts.customerIds.size === 0) {
     return [];
   }
+  const where = {
+    organizationId: opts.organizationId,
+    ...(opts.customerIds && opts.customerIds.size > 0
+      ? { id: { in: [...opts.customerIds] } }
+      : {}),
+  };
+
+  if (opts.page && opts.pageSize) {
+    const total = await prisma.customer.count({ where });
+    const rows = await prisma.customer.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (opts.page - 1) * opts.pageSize,
+      take: opts.pageSize,
+    });
+    return {
+      items: rows.map(toApiCustomer),
+      page: opts.page,
+      pageSize: opts.pageSize,
+      total,
+      totalPages: Math.ceil(total / opts.pageSize)
+    };
+  }
+
   const rows = await prisma.customer.findMany({
-    where: {
-      organizationId: opts.organizationId,
-      ...(opts.customerIds && opts.customerIds.size > 0
-        ? { id: { in: [...opts.customerIds] } }
-        : {}),
-    },
+    where,
     orderBy: { createdAt: "desc" },
   });
   return rows.map(toApiCustomer);
@@ -89,11 +110,13 @@ export async function createCustomer(data: {
 }) {
   const norm = normalizePhone(data.phone);
   if (norm.length === 10) {
-    const existing = await prisma.customer.findMany({
-      where: { organizationId: data.organizationId },
-    });
-    const clash = existing.find((c) => normalizePhone(c.phone) === norm);
-    if (clash) throw new Error("Phone already in use");
+    const clash = await prisma.$queryRaw<unknown[]>`
+      SELECT 1 FROM "Customer" 
+      WHERE "organizationId" = ${data.organizationId} 
+        AND RIGHT(REGEXP_REPLACE(phone, '\\D', '', 'g'), 10) = ${norm}
+      LIMIT 1
+    `;
+    if (Array.isArray(clash) && clash.length > 0) throw new Error("Phone already in use");
   }
 
   const referredBy = await resolveAdvocateReferralCode(data.organizationId, data.referredBy);
@@ -144,11 +167,14 @@ export async function updateCustomer(
   if (data.phone !== undefined) {
     const norm = normalizePhone(data.phone);
     if (norm.length === 10) {
-      const others = await prisma.customer.findMany({
-        where: { organizationId, NOT: { id } },
-      });
-      const clash = others.find((c) => normalizePhone(c.phone) === norm);
-      if (clash) throw new Error("Phone already in use");
+      const clash = await prisma.$queryRaw<unknown[]>`
+        SELECT 1 FROM "Customer" 
+        WHERE "organizationId" = ${organizationId} 
+          AND "id" != ${id}
+          AND RIGHT(REGEXP_REPLACE(phone, '\\D', '', 'g'), 10) = ${norm}
+        LIMIT 1
+      `;
+      if (Array.isArray(clash) && clash.length > 0) throw new Error("Phone already in use");
     }
   }
 

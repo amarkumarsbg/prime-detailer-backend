@@ -312,6 +312,7 @@ model Customer {
   vehicles       Vehicle[]
 
   @@index([organizationId])
+  @@index([referralCode])
 }
 
 model Vehicle {
@@ -338,6 +339,8 @@ model Vehicle {
   organization       Organization   @relation(fields: [organizationId], references: [id])
 
   @@index([organizationId])
+  @@index([customerId])
+  @@index([registrationNumber])
 }
 
 /**
@@ -511,8 +514,10 @@ model AppJsonRow {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
   payload        Json
+  createdAt      DateTime     @default(now()) @db.Timestamptz(6)
   updatedAt      DateTime     @updatedAt
 
   @@id([collection, entityId])
   @@index([organizationId, collection])
+  @@index([organizationId, collection, createdAt(sort: Desc)], map: "AppJsonRow_org_col_created_idx")
 }

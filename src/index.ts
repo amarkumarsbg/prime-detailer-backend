@@ -34,9 +34,11 @@ import { getPublicCustomerLedger } from "./modules/parties/public-ledger.service
 import { verifyJobCardSecureToken } from "./lib/secure-token.js";
 import { getCollectionItem } from "./modules/collections/app-json-store.js";
 import { AppError } from "./lib/app-error.js";
+import { perfMiddleware } from "./middleware/perf.js";
 
 const app = express();
 
+app.use(perfMiddleware);
 app.use(compression());
 
 app.use(

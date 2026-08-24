@@ -270,13 +270,13 @@ export async function verifyLoginOtp(req: Request, res: Response, next: NextFunc
 export async function login(req: Request, res: Response, next: NextFunction) {
   try {
     const body = loginSchema.parse(req.body);
-    const user = await authenticateUser(body.email, body.password);
-    if (!user) {
+    const result = await authenticateUser(body.email, body.password);
+    if (!result) {
       res.status(401).json({ data: null, error: { message: "Invalid email or password" } });
       return;
     }
-    const branch = await prisma.branch.findUnique({ where: { id: user.branchId } });
-    res.json({ data: authSuccessResponse(user, branch), error: null });
+    // user + branch are returned together; branch lookup ran in parallel with bcrypt.
+    res.json({ data: authSuccessResponse(result.user, result.branch), error: null });
   } catch (e) {
     next(e);
   }
@@ -512,6 +512,7 @@ export async function me(req: Request, res: Response) {
     res.status(401).json({ data: null, error: { message: "Unauthorized" } });
     return;
   }
+  // branchId is in the JWT — look up user first, then branch using the same warm connection.
   const user = await prisma.user.findUnique({ where: { id: req.auth.id } });
   if (!user?.isActive) {
     res.status(401).json({ data: null, error: { message: "Unauthorized" } });

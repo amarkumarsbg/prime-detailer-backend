@@ -15,8 +15,9 @@ export type CollectionWriteContext = {
 export type CollectionDomainHandlers = {
   list: (
     organizationId: string,
-    allowedBranchIds?: string[] | null
-  ) => Promise<unknown[]>;
+    allowedBranchIds?: string[] | null,
+    opts?: { page?: number; pageSize?: number }
+  ) => Promise<unknown[] | { items: unknown[]; page: number; pageSize: number; total: number; totalPages: number }>;
   get: (organizationId: string, entityId: string) => Promise<unknown | null>;
   upsert: (entityId: string, payload: unknown, ctx: CollectionWriteContext) => Promise<void>;
   delete: (organizationId: string, entityId: string) => Promise<boolean>;
@@ -30,7 +31,7 @@ function asDocumentHandlers(collection: string): CollectionDomainHandlers {
   if (cached) return cached;
   const doc = createDocumentCollectionService(collection);
   cached = {
-    list: (orgId, allowed) => doc.list(orgId, allowed),
+    list: (orgId, allowed, opts) => doc.list(orgId, allowed, opts),
     get: (orgId, id) => doc.get(orgId, id),
     upsert: (id, payload, ctx) => doc.upsert(ctx.organizationId, id, payload),
     delete: (orgId, id) => doc.delete(orgId, id),
@@ -43,7 +44,7 @@ function asDocumentHandlers(collection: string): CollectionDomainHandlers {
 export function getCollectionDomainHandlers(collection: string): CollectionDomainHandlers {
   if (collection === "jobCards") {
     return {
-      list: (orgId, allowed) => jobCards.listJobCards(orgId, allowed),
+      list: (orgId, allowed, opts) => jobCards.listJobCards(orgId, allowed, opts),
       get: (orgId, id) => jobCards.getJobCard(orgId, id),
       upsert: (id, payload, ctx) =>
         jobCards.upsertJobCard(id, payload, {
@@ -60,7 +61,7 @@ export function getCollectionDomainHandlers(collection: string): CollectionDomai
   }
   if (collection === "invoices") {
     return {
-      list: (orgId, allowed) => invoices.listInvoices(orgId, allowed),
+      list: (orgId, allowed, opts) => invoices.listInvoices(orgId, allowed, opts),
       get: (orgId, id) => invoices.getInvoice(orgId, id),
       upsert: (id, payload, ctx) => invoices.upsertInvoice(ctx.organizationId, id, payload),
       delete: (orgId, id) => invoices.deleteInvoice(orgId, id),
@@ -69,7 +70,7 @@ export function getCollectionDomainHandlers(collection: string): CollectionDomai
   }
   if (collection === "quotations") {
     return {
-      list: (orgId, allowed) => quotations.listQuotations(orgId, allowed),
+      list: (orgId, allowed, opts) => quotations.listQuotations(orgId, allowed, opts),
       get: (orgId, id) => quotations.getQuotation(orgId, id),
       upsert: (id, payload, ctx) => quotations.upsertQuotation(ctx.organizationId, id, payload),
       delete: (orgId, id) => quotations.deleteQuotation(orgId, id),
@@ -78,7 +79,7 @@ export function getCollectionDomainHandlers(collection: string): CollectionDomai
   }
   if (collection === "appointments") {
     return {
-      list: (orgId, allowed) => appointments.listAppointments(orgId, allowed),
+      list: (orgId, allowed, opts) => appointments.listAppointments(orgId, allowed, opts),
       get: (orgId, id) => appointments.getAppointment(orgId, id),
       upsert: (id, payload, ctx) => appointments.upsertAppointment(ctx.organizationId, id, payload),
       delete: (orgId, id) => appointments.deleteAppointment(orgId, id),

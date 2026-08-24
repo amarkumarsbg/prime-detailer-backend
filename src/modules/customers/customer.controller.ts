@@ -10,6 +10,7 @@ import {
   adjustWallet,
 } from "./customer.service.js";
 import { resolveBranchScope } from "../../lib/data-scope.js";
+import { parsePagination } from "../../lib/pagination.js";
 
 const trimmed = (v: unknown) => (typeof v === "string" ? v.trim() : v);
 
@@ -68,8 +69,13 @@ export async function getCustomers(req: Request, res: Response, next: NextFuncti
       res.json({ data: { customers: [] }, error: null });
       return;
     }
-    const customers = await listCustomers({ organizationId: scope.organizationId });
-    res.json({ data: { customers }, error: null });
+    const { page, pageSize } = parsePagination(req);
+    const result = await listCustomers({ organizationId: scope.organizationId, page, pageSize });
+    if (Array.isArray(result)) {
+       res.json({ data: { customers: result }, error: null });
+    } else {
+       res.json({ data: { ...result, customers: result.items }, error: null });
+    }
   } catch (e) {
     next(e);
   }

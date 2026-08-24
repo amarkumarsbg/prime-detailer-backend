@@ -18,6 +18,7 @@ import {
   upsertJobCard,
 } from "./job-cards.service.js";
 import { generateJobCardSecureToken } from "../../lib/secure-token.js";
+import { parsePagination } from "../../lib/pagination.js";
 
 const COLLECTION = "jobCards" as const;
 const snapshotSchema = z.object({ items: z.array(z.unknown()) });
@@ -29,7 +30,9 @@ export async function getJobCards(req: Request, res: Response, next: NextFunctio
       res.json({ data: { items: [] }, error: null });
       return;
     }
-    const items = await listJobCards(scope.scope.organizationId, scope.allowedBranchIds);
+    const { page, pageSize } = parsePagination(req);
+    const result = await listJobCards(scope.scope.organizationId, scope.allowedBranchIds, { page, pageSize });
+    const items = Array.isArray(result) ? result : result.items;
     const itemsWithTokens = items.map((item: any) => {
       if (item && typeof item === "object" && typeof item.id === "string") {
         return {
@@ -39,7 +42,11 @@ export async function getJobCards(req: Request, res: Response, next: NextFunctio
       }
       return item;
     });
-    res.json({ data: { items: itemsWithTokens }, error: null });
+    if (Array.isArray(result)) {
+      res.json({ data: { items: itemsWithTokens }, error: null });
+    } else {
+      res.json({ data: { ...result, items: itemsWithTokens }, error: null });
+    }
   } catch (e) {
     next(e);
   }

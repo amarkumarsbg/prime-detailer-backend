@@ -11,6 +11,7 @@ import {
 import { FuelType, VehicleSegment } from "@prisma/client";
 import { resolveBranchScope } from "../../lib/data-scope.js";
 import { prisma } from "../../lib/prisma.js";
+import { parsePagination } from "../../lib/pagination.js";
 
 export function isValidIndianVehicleRegistration(reg: string): boolean {
   if (!reg || typeof reg !== "string") return false;
@@ -97,8 +98,14 @@ export async function getVehicles(req: Request, res: Response, next: NextFunctio
       res.json({ data: { vehicles: [] }, error: null });
       return;
     }
-    const vehicles = await listVehiclesApi({ organizationId: scope.organizationId });
-    res.json({ data: { vehicles }, error: null });
+    const { page, pageSize } = parsePagination(req);
+    
+    const result = await listVehiclesApi({ organizationId: scope.organizationId, page, pageSize });
+    if (Array.isArray(result)) {
+       res.json({ data: { vehicles: result }, error: null });
+    } else {
+       res.json({ data: { ...result, vehicles: result.items }, error: null });
+    }
   } catch (e) {
     next(e);
   }

@@ -157,9 +157,10 @@ async function upsertAppointmentRow(
 
 export async function listAppointments(
   organizationId: string,
-  allowedBranchIds?: string[] | null
+  allowedBranchIds?: string[] | null,
+  opts?: { page?: number; pageSize?: number }
 ) {
-  return listCollectionItems("appointments", { organizationId, allowedBranchIds });
+  return listCollectionItems("appointments", { organizationId, allowedBranchIds, ...opts });
 }
 
 export async function getAppointment(organizationId: string, entityId: string) {
@@ -198,7 +199,8 @@ export async function replaceAppointments(
   organizationId: string,
   items: { id: string }[]
 ): Promise<void> {
-  const existing = await listCollectionItems("appointments", { organizationId });
+  const existingRaw = await listCollectionItems("appointments", { organizationId });
+  const existing = Array.isArray(existingRaw) ? existingRaw : existingRaw.items;
   const prevById = new Map<string, unknown>();
 
   for (const row of existing) {

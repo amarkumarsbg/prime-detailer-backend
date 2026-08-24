@@ -6,6 +6,7 @@ import {
   extractBranding,
   type BrandingPayload,
 } from "../../lib/data-scope.js";
+import { SimpleCache } from "../../lib/simple-cache.js";
 import type { AuthUser } from "../../middleware/auth.js";
 
 export type ThinBootstrapPayload = {
@@ -13,6 +14,9 @@ export type ThinBootstrapPayload = {
   branding: BrandingPayload;
   entitlement: Awaited<ReturnType<typeof getEntitlementForOrg>> | null;
 };
+
+/** Cache branding per org for 60 seconds — it changes rarely. */
+const brandingCache = new SimpleCache<BrandingPayload>(60_000);
 
 async function resolveOrganizationId(auth?: AuthUser): Promise<string | undefined> {
   let organizationId = auth?.organizationId;
@@ -27,22 +31,25 @@ async function resolveOrganizationId(auth?: AuthUser): Promise<string | undefine
 }
 
 async function loadBranding(organizationId?: string): Promise<BrandingPayload> {
-  const row = organizationId
-    ? await prisma.appJsonRow.findFirst({
-        where: {
-          collection: "appSettings",
-          entityId: SINGLETON_ENTITY_ID,
-          organizationId,
-        },
-        select: { payload: true },
-      })
-    : await prisma.appJsonRow.findUnique({
-        where: {
-          collection_entityId: { collection: "appSettings", entityId: SINGLETON_ENTITY_ID },
-        },
-        select: { payload: true },
-      });
-  return extractBranding(row?.payload ?? null);
+  const cacheKey = organizationId ?? "__global__";
+  return brandingCache.getOrLoad(cacheKey, async () => {
+    const row = organizationId
+      ? await prisma.appJsonRow.findFirst({
+          where: {
+            collection: "appSettings",
+            entityId: SINGLETON_ENTITY_ID,
+            organizationId,
+          },
+          select: { payload: true },
+        })
+      : await prisma.appJsonRow.findUnique({
+          where: {
+            collection_entityId: { collection: "appSettings", entityId: SINGLETON_ENTITY_ID },
+          },
+          select: { payload: true },
+        });
+    return extractBranding(row?.payload ?? null);
+  });
 }
 
 /**

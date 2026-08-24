@@ -31,18 +31,39 @@ function registrationDuplicateKey(reg: string): string {
 export async function listVehiclesApi(opts?: {
   organizationId: string;
   vehicleIds?: Set<string> | null;
+  page?: number;
+  pageSize?: number;
 }) {
   if (!opts?.organizationId) return [];
   if (opts.vehicleIds && opts.vehicleIds.size === 0) {
     return [];
   }
+  const where = {
+    organizationId: opts.organizationId,
+    ...(opts.vehicleIds && opts.vehicleIds.size > 0
+      ? { id: { in: [...opts.vehicleIds] } }
+      : {}),
+  };
+
+  if (opts.page && opts.pageSize) {
+    const total = await prisma.vehicle.count({ where });
+    const rows = await prisma.vehicle.findMany({
+      where,
+      orderBy: { id: "asc" },
+      skip: (opts.page - 1) * opts.pageSize,
+      take: opts.pageSize,
+    });
+    return {
+      items: rows.map(toApiVehicle),
+      page: opts.page,
+      pageSize: opts.pageSize,
+      total,
+      totalPages: Math.ceil(total / opts.pageSize)
+    };
+  }
+
   const rows = await prisma.vehicle.findMany({
-    where: {
-      organizationId: opts.organizationId,
-      ...(opts.vehicleIds && opts.vehicleIds.size > 0
-        ? { id: { in: [...opts.vehicleIds] } }
-        : {}),
-    },
+    where,
     orderBy: { id: "asc" },
   });
   return rows.map(toApiVehicle);
@@ -241,16 +262,22 @@ export async function createVehiclesBulk(
   created: ReturnType<typeof toApiVehicle>[];
   skipped: BulkVehicleSkipped[];
 }> {
-  const [existingVehicles, customers] = await Promise.all([
-    prisma.vehicle.findMany({
-      where: { organizationId },
-      select: { registrationNumber: true },
-    }),
-    prisma.customer.findMany({
-      where: { organizationId },
-      select: { id: true },
-    }),
-  ]);
+  const rawRegs = inputs.map(i => registrationDuplicateKey(String(i.registrationNumber ?? ""))).filter(Boolean);
+  const inputCustomerIds = inputs.map(i => String(i.customerId ?? "").trim()).filter(Boolean);
+
+  let existingVehicles: { registrationNumber: string }[] = [];
+  if (rawRegs.length > 0) {
+    const joined = rawRegs.map(r => `'${r.replace(/'/g, "''")}'`).join(", ");
+    existingVehicles = await prisma.$queryRawUnsafe<{ registrationNumber: string }[]>(
+      `SELECT "registrationNumber" FROM "Vehicle" WHERE "organizationId" = $1 AND UPPER(REPLACE(REPLACE("registrationNumber", ' ', ''), '-', '')) IN (${joined})`,
+      organizationId
+    );
+  }
+
+  const customers = inputCustomerIds.length > 0 ? await prisma.customer.findMany({
+    where: { organizationId, id: { in: inputCustomerIds } },
+    select: { id: true },
+  }) : [];
 
   const usedRegs = new Set(
     existingVehicles.map((v) => registrationDuplicateKey(v.registrationNumber)).filter(Boolean)

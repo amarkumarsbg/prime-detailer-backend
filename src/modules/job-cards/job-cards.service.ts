@@ -2,6 +2,7 @@
  * Job Cards domain service.
  * HTTP: `/api/job-cards` aliases + `/api/collections/jobCards` (+ photo upload).
  */
+import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../lib/app-error.js";
 import {
   evaluateJobCardPricingWrite,
@@ -24,11 +25,15 @@ async function invoiceExistsForJobCard(
   organizationId: string,
   jobCardId: string
 ): Promise<boolean> {
-  const invoices = await listCollectionItems("invoices", { organizationId });
-  return invoices.some((raw) => {
-    if (!raw || typeof raw !== "object") return false;
-    return (raw as { jobCardId?: string }).jobCardId === jobCardId;
-  });
+  const rows = await prisma.$queryRaw<unknown[]>`
+    SELECT 1 
+    FROM "AppJsonRow" 
+    WHERE collection = 'invoices' 
+      AND "organizationId" = ${organizationId}
+      AND payload->>'jobCardId' = ${jobCardId}
+    LIMIT 1
+  `;
+  return Array.isArray(rows) && rows.length > 0;
 }
 
 export async function assertJobCardPricingAllowed(
@@ -56,9 +61,10 @@ export async function assertJobCardPricingAllowed(
 
 export async function listJobCards(
   organizationId: string,
-  allowedBranchIds?: string[] | null
+  allowedBranchIds?: string[] | null,
+  opts?: { page?: number; pageSize?: number }
 ) {
-  return listCollectionItems("jobCards", { organizationId, allowedBranchIds });
+  return listCollectionItems("jobCards", { organizationId, allowedBranchIds, ...opts });
 }
 
 export async function getJobCard(organizationId: string, entityId: string) {
@@ -79,9 +85,10 @@ export async function replaceJobCards(
   items: { id: string }[],
   ctx: JobCardWriteContext
 ): Promise<void> {
-  const existing = await listCollectionItems("jobCards", {
+  const existingRaw = await listCollectionItems("jobCards", {
     organizationId: ctx.organizationId,
   });
+  const existing = Array.isArray(existingRaw) ? existingRaw : existingRaw.items;
   const prevById = new Map<string, unknown>();
   for (const row of existing) {
     if (row && typeof row === "object" && typeof (row as { id?: string }).id === "string") {

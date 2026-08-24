@@ -74,7 +74,11 @@ export const collectionPaths: OpenApiPaths = {
         "Permissions vary by collection (e.g. jobCards→JOB_CARDS, invoices→BILLING, appointments→APPOINTMENTS, pickupDropRequests→PICKUP_DROP, appSettings→SETTINGS). " +
         "See schemas JobCard, Invoice, Quotation, Appointment/Booking, PickupDropRequest, AppSettings.",
       security: bearerSecurity,
-      parameters: [collectionParam],
+      parameters: [
+        collectionParam,
+        { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+        { name: "pageSize", in: "query", schema: { type: "integer", default: 10, enum: [10, 20, 50], maximum: 50 } },
+      ],
       responses: {
         "200": okResponse({
           type: "object",
@@ -173,6 +177,10 @@ export const jobCardUploadPaths: OpenApiPaths = {
       description:
         `${permNote("JOB_CARDS")} Same payload as collections ({ items }). Studio FE primary path (Phase 4).`,
       security: bearerSecurity,
+      parameters: [
+        { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+        { name: "pageSize", in: "query", schema: { type: "integer", default: 10, enum: [10, 20, 50], maximum: 50 } },
+      ],
       responses: {
         "200": okResponse({
           type: "object",
@@ -286,6 +294,10 @@ export const invoiceAliasPaths: OpenApiPaths = {
         `${permNote("BILLING")} Same payload as collections ({ items }). Studio FE primary path (Phase 4). ` +
         "Public view: `GET /api/public/invoices/{id}`.",
       security: bearerSecurity,
+      parameters: [
+        { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+        { name: "pageSize", in: "query", schema: { type: "integer", default: 10, enum: [10, 20, 50], maximum: 50 } },
+      ],
       responses: {
         "200": okResponse({
           type: "object",

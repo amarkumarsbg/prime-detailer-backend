@@ -19,6 +19,7 @@ import {
   getCollectionDomainHandlers,
   type CollectionWriteContext,
 } from "./collection.dispatcher.js";
+import { parsePagination } from "../../lib/pagination.js";
 
 function forbidden(res: Response, message: string) {
   res.status(403).json({
@@ -95,9 +96,15 @@ export async function getCollection(req: Request, res: Response, next: NextFunct
     const q = typeof req.query.branchId === "string" ? req.query.branchId : undefined;
     const allowedBranchIds = intersectQueryBranchId(scope, q);
 
+    const { page, pageSize } = parsePagination(req);
+
     const domain = getCollectionDomainHandlers(collection);
-    const items = await domain.list(scope.organizationId, allowedBranchIds);
-    res.json({ data: { items }, error: null });
+    const result = await domain.list(scope.organizationId, allowedBranchIds, { page, pageSize });
+    if (Array.isArray(result)) {
+      res.json({ data: { items: result }, error: null });
+    } else {
+      res.json({ data: result, error: null });
+    }
   } catch (e) {
     next(e);
   }

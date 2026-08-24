@@ -12,9 +12,10 @@ import {
 
 export async function listQuotations(
   organizationId: string,
-  allowedBranchIds?: string[] | null
+  allowedBranchIds?: string[] | null,
+  opts?: { page?: number; pageSize?: number }
 ) {
-  return listCollectionItems("quotations", { organizationId, allowedBranchIds });
+  return listCollectionItems("quotations", { organizationId, allowedBranchIds, ...opts });
 }
 
 export async function getQuotation(organizationId: string, entityId: string) {

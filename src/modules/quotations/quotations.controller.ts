@@ -16,6 +16,7 @@ import {
   replaceQuotations,
   upsertQuotation,
 } from "./quotations.service.js";
+import { parsePagination } from "../../lib/pagination.js";
 
 const COLLECTION = "quotations" as const;
 const snapshotSchema = z.object({ items: z.array(z.unknown()) });
@@ -27,8 +28,13 @@ export async function getQuotations(req: Request, res: Response, next: NextFunct
       res.json({ data: { items: [] }, error: null });
       return;
     }
-    const items = await listQuotations(scope.scope.organizationId, scope.allowedBranchIds);
-    res.json({ data: { items }, error: null });
+    const { page, pageSize } = parsePagination(req);
+    const result = await listQuotations(scope.scope.organizationId, scope.allowedBranchIds, { page, pageSize });
+    if (Array.isArray(result)) {
+      res.json({ data: { items: result }, error: null });
+    } else {
+      res.json({ data: result, error: null });
+    }
   } catch (e) {
     next(e);
   }

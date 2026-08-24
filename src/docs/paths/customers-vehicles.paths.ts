@@ -15,6 +15,10 @@ export const customerPaths: OpenApiPaths = {
       summary: "List customers",
       description: permNote("CUSTOMERS"),
       security: bearerSecurity,
+      parameters: [
+        { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+        { name: "pageSize", in: "query", schema: { type: "integer", default: 10, enum: [10, 20, 50], maximum: 50 } },
+      ],
       responses: {
         "200": okResponse({
           type: "object",
@@ -185,6 +189,10 @@ export const vehiclePaths: OpenApiPaths = {
       summary: "List vehicles",
       description: permNote("VEHICLES"),
       security: bearerSecurity,
+      parameters: [
+        { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+        { name: "pageSize", in: "query", schema: { type: "integer", default: 10, enum: [10, 20, 50], maximum: 50 } },
+      ],
       responses: {
         "200": okResponse({
           type: "object",

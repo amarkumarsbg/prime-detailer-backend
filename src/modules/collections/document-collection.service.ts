@@ -11,8 +11,12 @@ import {
 
 export function createDocumentCollectionService(collection: string) {
   return {
-    list(organizationId: string, allowedBranchIds?: string[] | null) {
-      return listCollectionItems(collection, { organizationId, allowedBranchIds });
+    async list(
+      organizationId: string,
+      allowedBranchIds?: string[] | null,
+      opts?: { page?: number; pageSize?: number }
+    ): Promise<unknown[]> {
+      return listCollectionItems(collection, { organizationId, allowedBranchIds, ...opts }) as unknown as Promise<unknown[]>;
     },
     get(organizationId: string, entityId: string) {
       return getCollectionItem(collection, entityId, organizationId);

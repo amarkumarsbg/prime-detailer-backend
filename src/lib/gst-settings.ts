@@ -4,19 +4,30 @@
  */
 import { getCollectionItem } from "../modules/collections/app-json-store.js";
 import { SINGLETON_ENTITY_ID } from "../constants/json-collections.js";
+import { SimpleCache } from "./simple-cache.js";
 
 export type GstRegistrationStatus = "REGISTERED" | "NOT_REGISTERED";
+
+/** Cache appSettings GST status per org for 60 seconds. */
+const gstStatusCache = new SimpleCache<GstRegistrationStatus>(60_000);
 
 /** Matches frontend default when appSettings row is missing. */
 export async function getOrgGstRegistrationStatus(
   organizationId: string
 ): Promise<GstRegistrationStatus> {
-  const settings = await getCollectionItem("appSettings", SINGLETON_ENTITY_ID, organizationId);
-  if (settings && typeof settings === "object") {
-    const status = (settings as { gstRegistrationStatus?: unknown }).gstRegistrationStatus;
-    if (status === "NOT_REGISTERED") return "NOT_REGISTERED";
-  }
-  return "REGISTERED";
+  return gstStatusCache.getOrLoad(organizationId, async () => {
+    const settings = await getCollectionItem("appSettings", SINGLETON_ENTITY_ID, organizationId);
+    if (settings && typeof settings === "object") {
+      const status = (settings as { gstRegistrationStatus?: unknown }).gstRegistrationStatus;
+      if (status === "NOT_REGISTERED") return "NOT_REGISTERED";
+    }
+    return "REGISTERED";
+  });
+}
+
+/** Call when org updates appSettings to invalidate the GST status cache. */
+export function invalidateGstStatusCache(organizationId: string): void {
+  gstStatusCache.invalidate(organizationId);
 }
 
 /**
