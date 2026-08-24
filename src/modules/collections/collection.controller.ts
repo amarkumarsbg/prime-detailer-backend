@@ -43,6 +43,24 @@ function collectionParam(req: Request): string {
   return Array.isArray(raw) ? raw[0]! : raw!;
 }
 
+function isPickupDropWriteBlocked(): boolean {
+  const raw = process.env.BLOCK_PICKUP_DROP_WRITES?.trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes";
+}
+
+function assertPickupDropWritesAllowed(res: Response, collection: string): boolean {
+  if (collection !== "pickupDropRequests") return true;
+  if (!isPickupDropWriteBlocked()) return true;
+  res.status(403).json({
+    data: null,
+    error: {
+      message: "Pickup/Drop writes are temporarily blocked.",
+      code: ApiErrorCode.FORBIDDEN,
+    },
+  });
+  return false;
+}
+
 function entityParam(req: Request): string {
   const raw = req.params.entityId;
   return Array.isArray(raw) ? raw[0]! : raw!;
@@ -96,6 +114,7 @@ export async function postSnapshot(req: Request, res: Response, next: NextFuncti
       res.status(400).json({ data: null, error: { message: "Snapshot only for array collections" } });
       return;
     }
+    if (!assertPickupDropWritesAllowed(res, collection)) return;
     if (!assertPayrollAccess(res, collection, req.auth?.role)) return;
     if (!req.auth) {
       res.status(401).json({ data: null, error: { message: "Unauthorized" } });
@@ -135,6 +154,7 @@ export async function putCollectionItem(req: Request, res: Response, next: NextF
       });
       return;
     }
+    if (!assertPickupDropWritesAllowed(res, collection)) return;
     if (!assertPayrollAccess(res, collection, req.auth?.role)) return;
     if (!req.auth) {
       res.status(401).json({ data: null, error: { message: "Unauthorized" } });
