@@ -176,6 +176,87 @@ export async function upsertAppointment(
   const normalized = normalizeAppointmentPayload(payload, previous);
   await upsertCollectionItem("appointments", entityId, normalized, organizationId);
   await upsertAppointmentRow(organizationId, entityId, normalized);
+  await syncPickupDropRequest(organizationId, entityId, normalized, previous);
+}
+
+/**
+ * Auto-create / remove a `pickupDropRequests` entry whenever an appointment
+ * has vehiclePickupRequired toggled. The entity id is `pnd-<appointmentId>`.
+ * This is the source of truth — the frontend has no separate write for P&D.
+ */
+async function syncPickupDropRequest(
+  organizationId: string,
+  appointmentId: string,
+  payload: unknown,
+  previous: unknown | null
+): Promise<void> {
+  const doc = asRecord(payload);
+  if (!doc) return;
+
+  const pickupId  = `pnd-pickup-${appointmentId}`;
+  const dropId    = `pnd-drop-${appointmentId}`;
+  const pickupRequired = asBoolean(doc.vehiclePickupRequired);
+
+  if (pickupRequired === true) {
+    const baseFields = {
+      appointmentId,
+      bookingId: asString(doc.bookingId) ?? appointmentId,
+      appointmentNumber: asString(doc.appointmentNumber),
+      customerId: asString(doc.customerId),
+      customerName: asString(doc.customerName),
+      customerPhone: asString(doc.customerPhone),
+      customerAddress: asString(doc.customerAddress),
+      vehicleId: asString(doc.vehicleId),
+      vehicleRegNumber: asString(doc.vehicleRegNumber),
+      vehicleMakeModel: asString(doc.vehicleMakeModel),
+      branchId: asString(doc.branchId),
+      date: asString(doc.date),
+      time: asString(doc.time),
+      serviceType: asString(doc.serviceType),
+      createdAt: asString(doc.createdAt) ?? new Date().toISOString(),
+    };
+
+    // Driver fields from booking payload
+    const pickupDriverId   = asString(doc.pickupDriverId);
+    const pickupDriverName = asString(doc.pickupDriverName);
+    const dropDriverId     = asString(doc.dropDriverId);
+    const dropDriverName   = asString(doc.dropDriverName);
+
+    // 1. PICKUP — collect vehicle from customer address → workshop
+    const existingPickup = await getCollectionItem("pickupDropRequests", pickupId, organizationId) as Record<string, unknown> | null;
+    const pickupStatus = existingPickup?.status ?? "PENDING";
+    await upsertCollectionItem("pickupDropRequests", pickupId, {
+      ...baseFields,
+      id: pickupId,
+      requestType: "PICKUP",
+      status: pickupStatus,
+      vehiclePickupStatus: asString(existingPickup?.vehiclePickupStatus) ?? "PENDING",
+      // Prefer booking-level driver; fall back to whatever was already assigned on the P&D row
+      driverId:   pickupDriverId   ?? asString(existingPickup?.driverId)   ?? null,
+      driverName: pickupDriverName ?? asString(existingPickup?.driverName) ?? null,
+    }, organizationId);
+
+    // 2. DROP OFF — return vehicle from workshop → customer address
+    const existingDrop = await getCollectionItem("pickupDropRequests", dropId, organizationId) as Record<string, unknown> | null;
+    const dropStatus = existingDrop?.status ?? "PENDING";
+    await upsertCollectionItem("pickupDropRequests", dropId, {
+      ...baseFields,
+      id: dropId,
+      requestType: "DROP_OFF",
+      status: dropStatus,
+      vehiclePickupStatus: asString(existingDrop?.vehiclePickupStatus) ?? "PENDING",
+      driverId:   dropDriverId   ?? asString(existingDrop?.driverId)   ?? null,
+      driverName: dropDriverName ?? asString(existingDrop?.driverName) ?? null,
+    }, organizationId);
+
+  } else if (pickupRequired === false) {
+    // vehiclePickupRequired explicitly set to false — remove both P&D entries.
+    const prevRequired = asBoolean(asRecord(previous)?.vehiclePickupRequired);
+    if (prevRequired === true) {
+      await deleteCollectionItem("pickupDropRequests", pickupId, organizationId);
+      await deleteCollectionItem("pickupDropRequests", dropId, organizationId);
+    }
+  }
 }
 
 export async function deleteAppointment(
@@ -184,6 +265,9 @@ export async function deleteAppointment(
 ): Promise<boolean> {
   const deleted = await deleteCollectionItem("appointments", entityId, organizationId);
   if (!deleted) return false;
+  // Remove both P&D entries if they exist.
+  await deleteCollectionItem("pickupDropRequests", `pnd-pickup-${entityId}`, organizationId);
+  await deleteCollectionItem("pickupDropRequests", `pnd-drop-${entityId}`, organizationId);
   if (await hasAppointmentTable()) {
     try {
       await prisma.appointment.deleteMany({ where: { id: entityId, organizationId } });
