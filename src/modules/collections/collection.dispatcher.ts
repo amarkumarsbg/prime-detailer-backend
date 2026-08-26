@@ -6,6 +6,15 @@ import * as jobCards from "../job-cards/job-cards.service.js";
 import * as invoices from "../invoices/invoices.service.js";
 import * as quotations from "../quotations/quotations.service.js";
 import * as appointments from "../appointments/appointments.service.js";
+import {
+  upsertExpenseMeta,
+  listExpenseMeta,
+  getExpenseMeta,
+} from "./expense-meta.service.js";
+import {
+  deleteCollectionItem,
+  replaceCollectionArray,
+} from "./app-json-store.js";
 
 export type CollectionWriteContext = {
   organizationId: string;
@@ -84,6 +93,17 @@ export function getCollectionDomainHandlers(collection: string): CollectionDomai
       upsert: (id, payload, ctx) => appointments.upsertAppointment(ctx.organizationId, id, payload),
       delete: (orgId, id) => appointments.deleteAppointment(orgId, id),
       replace: (items, ctx) => appointments.replaceAppointments(ctx.organizationId, items),
+    };
+  }
+  if (collection === "expenseMeta") {
+    return {
+      list: (orgId, allowed) => listExpenseMeta(orgId, allowed),
+      get: (orgId) => getExpenseMeta(orgId),
+      // Upsert: preserves vendorDirectory + mirrors vendors to Party table.
+      upsert: (_id, payload, ctx) => upsertExpenseMeta(ctx.organizationId, payload),
+      delete: (orgId, id) => deleteCollectionItem("expenseMeta", id, orgId),
+      replace: (items, ctx) =>
+        replaceCollectionArray("expenseMeta", items, ctx.organizationId),
     };
   }
   return asDocumentHandlers(collection);
