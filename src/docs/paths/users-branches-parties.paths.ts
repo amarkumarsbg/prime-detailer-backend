@@ -106,6 +106,17 @@ export const userPaths: OpenApiPaths = {
     },
   },
   "/api/users/{id}": {
+    get: {
+      tags: ["Users", "Staff"],
+      summary: "Get staff user by ID",
+      description: permNote("STAFF"),
+      security: bearerSecurity,
+      parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+      responses: {
+        "200": okResponse({ type: "object", properties: { user: ref("User") } }),
+        ...commonErrorResponses(),
+      },
+    },
     put: {
       tags: ["Users", "Staff"],
       summary: "Update staff user",
@@ -118,6 +129,18 @@ export const userPaths: OpenApiPaths = {
           type: "object",
           properties: { user: ref("User") },
         }),
+        ...commonErrorResponses(),
+      },
+    },
+    delete: {
+      tags: ["Users", "Staff"],
+      summary: "Delete staff user",
+      description:
+        `${permNote("STAFF")} Guards: cannot delete yourself; cannot delete SUPER_ADMIN unless caller is SUPER_ADMIN; PLATFORM_OWNER cannot be deleted. Cascades attendance records.`,
+      security: bearerSecurity,
+      parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+      responses: {
+        "200": okResponse(ref("OkOk")),
         ...commonErrorResponses(),
       },
     },

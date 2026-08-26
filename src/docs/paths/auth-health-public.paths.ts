@@ -653,3 +653,94 @@ export const publicPaths: OpenApiPaths = {
     },
   },
 };
+
+export const attendanceAdminPaths: OpenApiPaths = {
+  "/api/attendance": {
+    get: {
+      tags: ["Attendance"],
+      summary: "List attendance records (admin)",
+      description: "Requires ATTENDANCE permission. Optional `branchId` query filter.",
+      security: bearerSecurity,
+      parameters: [
+        { name: "branchId", in: "query", required: false, schema: { type: "string" } },
+      ],
+      responses: {
+        "200": okResponse({
+          type: "object",
+          properties: {
+            records: { type: "array", items: { type: "object", additionalProperties: true } },
+          },
+        }),
+        ...commonErrorResponses(),
+      },
+    },
+    post: {
+      tags: ["Attendance"],
+      summary: "Create or update attendance record (manual admin entry)",
+      description:
+        "Requires ATTENDANCE permission. Creates a new record or updates an existing one for the same staffId + date combination. " +
+        "Use this for manual corrections or entries when QR punch was missed.",
+      security: bearerSecurity,
+      requestBody: jsonBody({
+        type: "object",
+        required: ["staffId", "date", "status"],
+        properties: {
+          staffId: { type: "string", description: "User ID of the staff member" },
+          date: { type: "string", format: "date", description: "yyyy-MM-dd" },
+          checkIn: { type: "string", nullable: true, description: "HH:mm" },
+          checkOut: { type: "string", nullable: true, description: "HH:mm" },
+          durationMinutes: { type: "integer", nullable: true },
+          status: { type: "string", enum: ["PRESENT", "ABSENT", "LATE", "HALF_DAY"] },
+        },
+      }),
+      responses: {
+        "200": okResponse({
+          type: "object",
+          properties: { record: { type: "object", additionalProperties: true } },
+        }),
+        ...commonErrorResponses(),
+      },
+    },
+    delete: {
+      tags: ["Attendance"],
+      summary: "Reset all attendance records (admin bulk delete)",
+      description: "Requires ATTENDANCE permission. Deletes ALL records. Irreversible.",
+      security: bearerSecurity,
+      responses: {
+        "200": okResponse({
+          type: "object",
+          properties: { ok: { type: "boolean" }, records: { type: "array", items: {} } },
+        }),
+        ...commonErrorResponses(),
+      },
+    },
+  },
+  "/api/attendance/{id}": {
+    put: {
+      tags: ["Attendance"],
+      summary: "Update attendance record by record ID",
+      description: "Requires ATTENDANCE permission. Updates an existing attendance record.",
+      security: bearerSecurity,
+      parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+      requestBody: jsonBody({
+        type: "object",
+        required: ["staffId", "date", "status"],
+        properties: {
+          staffId: { type: "string" },
+          date: { type: "string", format: "date" },
+          checkIn: { type: "string", nullable: true },
+          checkOut: { type: "string", nullable: true },
+          durationMinutes: { type: "integer", nullable: true },
+          status: { type: "string", enum: ["PRESENT", "ABSENT", "LATE", "HALF_DAY"] },
+        },
+      }),
+      responses: {
+        "200": okResponse({
+          type: "object",
+          properties: { record: { type: "object", additionalProperties: true } },
+        }),
+        ...commonErrorResponses(),
+      },
+    },
+  },
+};

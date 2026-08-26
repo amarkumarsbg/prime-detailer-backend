@@ -100,6 +100,7 @@ export const collectionPaths: OpenApiPaths = {
       description:
         `${collectionsLegacyNote} ` +
         "Replaces all rows for an array collection only (singletons rejected). " +
+        "**Financial collections** (productPurchases, stockMovements, expenses, walletTransactions, staffRewardLedger) reject empty snapshots with 409 when data exists. " +
         "jobCards writes may require JOB_CARD_PRICING when pricing fields change.",
       security: bearerSecurity,
       parameters: [collectionParam],
@@ -115,11 +116,26 @@ export const collectionPaths: OpenApiPaths = {
       }),
       responses: {
         "200": okResponse(ref("OkOk")),
+        "409": { description: "Conflict — empty snapshot rejected to prevent data loss on financial collections" },
         ...commonErrorResponses(),
       },
     },
   },
   "/api/collections/{collection}/{entityId}": {
+    get: {
+      tags: ["Collections"],
+      summary: "Get single collection entity (legacy gateway)",
+      description: `${collectionsLegacyNote} Returns a single entity by entityId. Permission mapped per collection.`,
+      security: bearerSecurity,
+      parameters: [
+        collectionParam,
+        { name: "entityId", in: "path", required: true, schema: { type: "string" } },
+      ],
+      responses: {
+        "200": okResponse({ type: "object", properties: { item: { type: "object", additionalProperties: true } } }),
+        ...commonErrorResponses(),
+      },
+    },
     put: {
       tags: [
         "Collections",
@@ -213,6 +229,17 @@ export const jobCardUploadPaths: OpenApiPaths = {
     },
   },
   "/api/job-cards/{id}": {
+    get: {
+      tags: ["Job Cards"],
+      summary: "Get single job card by ID",
+      description: `${permNote("JOB_CARDS")} Returns job card with secureToken for photo link.`,
+      security: bearerSecurity,
+      parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+      responses: {
+        "200": okResponse({ type: "object", properties: { item: ref("JobCard") } }),
+        ...commonErrorResponses(),
+      },
+    },
     put: {
       tags: ["Job Cards"],
       summary: "Upsert job card (dedicated alias)",
@@ -296,13 +323,17 @@ export const invoiceAliasPaths: OpenApiPaths = {
       security: bearerSecurity,
       parameters: [
         { name: "page", in: "query", schema: { type: "integer", default: 1 } },
-        { name: "pageSize", in: "query", schema: { type: "integer", default: 10, enum: [10, 20, 50], maximum: 50 } },
+        { name: "pageSize", in: "query", schema: { type: "integer", default: 10, maximum: 100 } },
       ],
       responses: {
         "200": okResponse({
           type: "object",
           properties: {
             items: { type: "array", items: ref("Invoice") },
+            total: { type: "integer" },
+            page: { type: "integer" },
+            pageSize: { type: "integer" },
+            totalPages: { type: "integer" },
           },
         }),
         ...commonErrorResponses(),
@@ -329,6 +360,17 @@ export const invoiceAliasPaths: OpenApiPaths = {
     },
   },
   "/api/invoices/{id}": {
+    get: {
+      tags: ["Billing"],
+      summary: "Get single invoice by ID",
+      description: `${permNote("BILLING")} Returns full invoice payload including storedPdf if present.`,
+      security: bearerSecurity,
+      parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+      responses: {
+        "200": okResponse({ type: "object", properties: { item: ref("Invoice") } }),
+        ...commonErrorResponses(),
+      },
+    },
     put: {
       tags: ["Billing"],
       summary: "Upsert invoice (dedicated alias)",

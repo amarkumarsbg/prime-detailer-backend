@@ -1,5 +1,5 @@
 import { openApiComponents } from "./components/index.js";
-import { authPaths, healthPaths, publicPaths } from "./paths/auth-health-public.paths.js";
+import { authPaths, healthPaths, publicPaths, attendanceAdminPaths } from "./paths/auth-health-public.paths.js";
 import { customerPaths, vehiclePaths } from "./paths/customers-vehicles.paths.js";
 import {
   branchPaths,
@@ -109,6 +109,7 @@ export function buildOpenApiDocument(options?: { serverUrl?: string }) {
       quotationPaths,
       messagingPaths,
       attendancePaths,
+      attendanceAdminPaths,
       organizationPaths,
       platformPaths,
       platformExtPaths,
