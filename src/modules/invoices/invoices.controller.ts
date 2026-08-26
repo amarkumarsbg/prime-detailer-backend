@@ -13,6 +13,7 @@ import {
 import {
   deleteInvoice,
   listInvoices,
+  getInvoice,
   replaceInvoices,
   upsertInvoice,
 } from "./invoices.service.js";
@@ -35,6 +36,25 @@ export async function getInvoices(req: Request, res: Response, next: NextFunctio
     } else {
       res.json({ data: result, error: null });
     }
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function getInvoiceById(req: Request, res: Response, next: NextFunction) {
+  try {
+    const org = await requireDocumentOrg(req);
+    if (!org) {
+      res.status(401).json({ data: null, error: { message: "Unauthorized" } });
+      return;
+    }
+    const id = entityIdParam(req);
+    const item = await getInvoice(org.organizationId, id);
+    if (!item) {
+      res.status(404).json({ data: null, error: { message: "Invoice not found" } });
+      return;
+    }
+    res.json({ data: { item }, error: null });
   } catch (e) {
     next(e);
   }

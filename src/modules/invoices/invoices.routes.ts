@@ -3,6 +3,7 @@ import { requireAuth, requirePermission } from "../../middleware/auth.js";
 import {
   deleteInvoiceRow,
   getInvoices,
+  getInvoiceById,
   postInvoicesSnapshot,
   putInvoice,
 } from "./invoices.controller.js";
@@ -18,6 +19,7 @@ invoicesRouter.use(requireAuth);
 invoicesRouter.use(requirePermission("BILLING"));
 
 invoicesRouter.get("/", getInvoices);
+invoicesRouter.get("/:id", getInvoiceById);
 invoicesRouter.post("/snapshot", postInvoicesSnapshot);
 invoicesRouter.put("/:id", putInvoice);
 invoicesRouter.delete("/:id", deleteInvoiceRow);

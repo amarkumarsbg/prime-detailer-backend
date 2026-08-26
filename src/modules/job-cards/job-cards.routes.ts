@@ -5,6 +5,7 @@ import { postJobCardInspectionPhoto } from "./job-card-upload.controller.js";
 import {
   deleteJobCardRow,
   getJobCards,
+  getJobCardById,
   postJobCardsSnapshot,
   putJobCard,
 } from "./job-cards.controller.js";
@@ -19,6 +20,7 @@ jobCardsRouter.use(requireAuth);
 jobCardsRouter.use(requirePermission("JOB_CARDS"));
 
 jobCardsRouter.get("/", getJobCards);
+jobCardsRouter.get("/:id", getJobCardById);
 jobCardsRouter.post("/snapshot", postJobCardsSnapshot);
 jobCardsRouter.put("/:id", putJobCard);
 jobCardsRouter.delete("/:id", deleteJobCardRow);

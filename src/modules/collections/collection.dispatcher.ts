@@ -12,6 +12,11 @@ import {
   getExpenseMeta,
 } from "./expense-meta.service.js";
 import {
+  upsertCashBank,
+  listCashBank,
+  getCashBank,
+} from "./cash-bank.service.js";
+import {
   deleteCollectionItem,
   replaceCollectionArray,
 } from "./app-json-store.js";
@@ -99,11 +104,21 @@ export function getCollectionDomainHandlers(collection: string): CollectionDomai
     return {
       list: (orgId, allowed) => listExpenseMeta(orgId, allowed),
       get: (orgId) => getExpenseMeta(orgId),
-      // Upsert: preserves vendorDirectory + mirrors vendors to Party table.
       upsert: (_id, payload, ctx) => upsertExpenseMeta(ctx.organizationId, payload),
       delete: (orgId, id) => deleteCollectionItem("expenseMeta", id, orgId),
       replace: (items, ctx) =>
         replaceCollectionArray("expenseMeta", items, ctx.organizationId),
+    };
+  }
+  if (collection === "cashBank") {
+    return {
+      list: (orgId, allowed) => listCashBank(orgId, allowed),
+      get: (orgId) => getCashBank(orgId),
+      // Upsert: preserves accounts + transactions if new payload has empty arrays.
+      upsert: (_id, payload, ctx) => upsertCashBank(ctx.organizationId, payload),
+      delete: (orgId, id) => deleteCollectionItem("cashBank", id, orgId),
+      replace: (items, ctx) =>
+        replaceCollectionArray("cashBank", items, ctx.organizationId),
     };
   }
   return asDocumentHandlers(collection);

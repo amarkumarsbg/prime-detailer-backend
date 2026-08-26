@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth, requirePermission, requireAnyPermission } from "../../middleware/auth.js";
-import { getUsers, getStaffDirectory, postUser, putUser } from "./user-api.controller.js";
+import { getUsers, getStaffDirectory, postUser, putUser, deleteUser } from "./user-api.controller.js";
 
 export const userApiRouter = Router();
 
@@ -27,3 +27,4 @@ userApiRouter.use(requirePermission("STAFF"));
 userApiRouter.get("/", getUsers);
 userApiRouter.post("/", postUser);
 userApiRouter.put("/:id", putUser);
+userApiRouter.delete("/:id", deleteUser);

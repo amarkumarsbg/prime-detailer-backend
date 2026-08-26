@@ -110,6 +110,36 @@ export async function getCollection(req: Request, res: Response, next: NextFunct
   }
 }
 
+export async function getCollectionItem(req: Request, res: Response, next: NextFunction) {
+  try {
+    const collection = collectionParam(req);
+    if (!isArrayCollection(collection) && !isSingletonCollection(collection)) {
+      res.status(400).json({ data: null, error: { message: "Unknown collection" } });
+      return;
+    }
+    if (!assertPayrollAccess(res, collection, req.auth?.role)) return;
+    if (!req.auth) {
+      res.status(401).json({ data: null, error: { message: "Unauthorized" } });
+      return;
+    }
+    const scope = await resolveBranchScope(req.auth);
+    if (!scope) {
+      res.status(404).json({ data: null, error: { message: "Not found" } });
+      return;
+    }
+    const entityId = entityParam(req);
+    const domain = getCollectionDomainHandlers(collection);
+    const item = await domain.get(scope.organizationId, entityId);
+    if (item === null || item === undefined) {
+      res.status(404).json({ data: null, error: { message: "Not found" } });
+      return;
+    }
+    res.json({ data: { item }, error: null });
+  } catch (e) {
+    next(e);
+  }
+}
+
 const snapshotSchema = z.object({
   items: z.array(z.unknown()),
 });

@@ -24,6 +24,36 @@ function assertCollectionWriteAllowed(collection: string): void {
   throw AppError.forbidden("Pickup/Drop writes are temporarily blocked.");
 }
 
+/**
+ * Financial collections whose transaction history must never be silently wiped
+ * by an empty snapshot (e.g. when the frontend hasn't loaded the data yet).
+ * An empty snapshot against any of these is rejected with 409 when rows exist.
+ */
+const FINANCIAL_COLLECTIONS = new Set([
+  "productPurchases",
+  "stockMovements",
+  "expenses",
+  "walletTransactions",
+  "staffRewardLedger",
+]);
+
+async function assertNonEmptySnapshotForFinancialCollections(
+  collection: string,
+  items: { id: string }[],
+  organizationId: string
+): Promise<void> {
+  if (!FINANCIAL_COLLECTIONS.has(collection)) return;
+  if (items.length > 0) return; // non-empty → fine
+  const existing = await prisma.appJsonRow.count({
+    where: { collection, organizationId },
+  });
+  if (existing === 0) return; // nothing to protect
+  throw AppError.conflict(
+    `Cannot replace ${collection} with an empty snapshot — ${existing} existing record(s) would be lost. ` +
+      `Delete records individually or send the full dataset.`
+  );
+}
+
 export type ListCollectionOpts = {
   /** When set, only return rows for this organization. */
   organizationId?: string;
@@ -244,6 +274,9 @@ export async function replaceCollectionArray(
     byId.set(id, { ...item, id });
   }
   const uniqueItems = [...byId.values()];
+
+  // Guard: reject empty snapshots for financial collections when data exists.
+  await assertNonEmptySnapshotForFinancialCollections(collection, uniqueItems, organizationId);
 
   // Reject snapshot that would clobber another org's entity ids.
   if (uniqueItems.length > 0) {

@@ -14,6 +14,7 @@ import {
 import {
   deleteJobCard,
   listJobCards,
+  getJobCard,
   replaceJobCards,
   upsertJobCard,
 } from "./job-cards.service.js";
@@ -47,6 +48,29 @@ export async function getJobCards(req: Request, res: Response, next: NextFunctio
     } else {
       res.json({ data: { ...result, items: itemsWithTokens }, error: null });
     }
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function getJobCardById(req: Request, res: Response, next: NextFunction) {
+  try {
+    const org = await requireDocumentOrg(req);
+    if (!org) {
+      res.status(401).json({ data: null, error: { message: "Unauthorized" } });
+      return;
+    }
+    const id = entityIdParam(req);
+    const item = await getJobCard(org.organizationId, id);
+    if (!item) {
+      res.status(404).json({ data: null, error: { message: "Job card not found" } });
+      return;
+    }
+    const itemWithToken =
+      item && typeof item === "object" && typeof (item as any).id === "string"
+        ? { ...(item as object), secureToken: generateJobCardSecureToken((item as any).id) }
+        : item;
+    res.json({ data: { item: itemWithToken }, error: null });
   } catch (e) {
     next(e);
   }

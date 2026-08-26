@@ -252,6 +252,16 @@ export async function postVehicleSnapshot(req: Request, res: Response, next: Nex
       return;
     }
     const body = snapshotBodySchema.parse(req.body);
+
+    // Guard: reject empty snapshot when vehicles already exist
+    if (body.vehicles.length === 0) {
+      const existing = await prisma.vehicle.count({ where: { organizationId: scope.organizationId } });
+      if (existing > 0) {
+        res.status(409).json({ data: null, error: { message: `Cannot replace vehicles with an empty snapshot — ${existing} existing vehicle(s) would be lost. Delete individually or send the full dataset.` } });
+        return;
+      }
+    }
+
     for (const v of body.vehicles) {
       const isVin = v.vinNumber && v.registrationNumber === v.vinNumber;
       if (!isVin && !isValidIndianVehicleRegistration(v.registrationNumber)) {

@@ -180,6 +180,39 @@ export async function postUser(req: Request, res: Response, next: NextFunction) 
   }
 }
 
+export async function deleteUser(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.auth || !isStaffManager(req.auth.role)) {
+      forbidden(res, "You do not have permission to delete users.");
+      return;
+    }
+    const id = paramId(req);
+    if (id === req.auth.id) {
+      forbidden(res, "You cannot delete your own account.");
+      return;
+    }
+    const existing = await prisma.user.findUnique({ where: { id }, select: { role: true, organizationId: true } });
+    if (!existing) {
+      res.status(404).json({ data: null, error: { message: "User not found" } });
+      return;
+    }
+    if (existing.role === "SUPER_ADMIN" && req.auth.role !== "SUPER_ADMIN") {
+      forbidden(res, "Only Super Admin can delete a Super Admin account.");
+      return;
+    }
+    if (existing.role === "PLATFORM_OWNER") {
+      forbidden(res, "Platform Owner accounts cannot be deleted.");
+      return;
+    }
+    // Delete attendance records first (FK)
+    await prisma.attendance.deleteMany({ where: { staffId: id } });
+    await prisma.user.delete({ where: { id } });
+    res.json({ data: { ok: true }, error: null });
+  } catch (e) {
+    next(e);
+  }
+}
+
 export async function putUser(req: Request, res: Response, next: NextFunction) {
   try {
     if (!req.auth || !isStaffManager(req.auth.role)) {

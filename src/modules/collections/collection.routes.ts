@@ -4,6 +4,7 @@ import { requireAuth, requirePermission } from "../../middleware/auth.js";
 import { getCollectionPermission } from "../../constants/collection-permissions.js";
 import {
   getCollection,
+  getCollectionItem,
   postSnapshot,
   putCollectionItem,
   deleteCollectionRow,
@@ -59,6 +60,7 @@ export function requireCollectionPermission(req: Request, res: Response, next: N
 }
 
 collectionRouter.get("/:collection", requireCollectionPermission, getCollection);
+collectionRouter.get("/:collection/:entityId", requireCollectionPermission, getCollectionItem);
 collectionRouter.post("/:collection/snapshot", requireCollectionPermission, postSnapshot);
 collectionRouter.put("/:collection/:entityId", requireCollectionPermission, putCollectionItem);
 collectionRouter.delete("/:collection/:entityId", requireCollectionPermission, deleteCollectionRow);
