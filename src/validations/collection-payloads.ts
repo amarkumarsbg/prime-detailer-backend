@@ -113,7 +113,10 @@ export const staffRewardSettingsPayloadSchema = z
     supervisorSharePercent: z.number().optional(),
     applicatorSharePercent: z.number().optional(),
     companyTargetEnabled: z.boolean().optional(),
-    companyTargetRevenueType: z.enum(["SERVICES", "COUNTER_SALE", "BOTH"]).optional(),
+    companyTargetRevenueType: z
+      .enum(["SERVICES", "COUNTER_SALE", "BOTH", "INVOICES"])
+      .optional()
+      .transform((v) => (v ? "INVOICES" : v)), // normalize all legacy values to INVOICES
     companyTargetPeriod: z.enum(["MONTHLY", "QUARTERLY", "HALF_YEARLY", "YEARLY"]).optional(),
     companyTargetTiers: z
       .array(

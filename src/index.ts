@@ -24,6 +24,7 @@ import { partyRouter } from "./modules/parties/party.routes.js";
 import { organizationRouter } from "./modules/organization/organization.routes.js";
 import { platformRouter } from "./modules/platform/platform.routes.js";
 import { jobsRouter } from "./modules/jobs/jobs.routes.js";
+import { rewardsRouter } from "./modules/rewards/rewards.routes.js";
 import { isSwaggerEnabled, registerSwagger } from "./docs/register-swagger.js";
 import { publicRouter } from "./routes/public.routes.js";
 
@@ -215,6 +216,7 @@ app.use("/api/parties", partyRouter);
 app.use("/api/organization", organizationRouter);
 app.use("/api/platform", platformRouter);
 app.use("/api/jobs", jobsRouter);
+app.use("/api/rewards", rewardsRouter);
 
 app.use(errorHandler);
 
