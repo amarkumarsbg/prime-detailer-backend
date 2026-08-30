@@ -42,6 +42,7 @@ export const SINGLETON_COLLECTIONS = [
   "vehicleCatalog",
   "leaveConfig",
   "staffRewardSettings",
+  "customerRewardSettings",
 ] as const;
 
 export type SingletonCollection = (typeof SINGLETON_COLLECTIONS)[number];

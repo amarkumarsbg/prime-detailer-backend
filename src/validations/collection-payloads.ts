@@ -186,6 +186,17 @@ export const membershipPayloadSchema = z
   })
   .passthrough();
 
+/** Singleton customer-portal reward/loyalty config (`entityId = default`). */
+export const customerRewardSettingsPayloadSchema = z
+  .object({
+    pointsPer100: z.number().optional(),
+    pointValue: z.number().optional(),
+    referralBonus: z.number().optional(),
+    minRedeem: z.number().optional(),
+    updatedAt: z.string().optional(),
+  })
+  .passthrough();
+
 const COLLECTION_PAYLOAD_SCHEMAS: Record<string, z.ZodType<object>> = {
   invoices: invoicePayloadSchema,
   jobCards: jobCardPayloadSchema,
@@ -198,6 +209,7 @@ const COLLECTION_PAYLOAD_SCHEMAS: Record<string, z.ZodType<object>> = {
   staffRewardSettings: staffRewardSettingsPayloadSchema,
   staffRewardLedger: staffRewardLedgerPayloadSchema,
   staffTargets: staffTargetPayloadSchema,
+  customerRewardSettings: customerRewardSettingsPayloadSchema,
 };
 
 export function parseCollectionPayload(collection: string, payload: unknown): object {
@@ -263,7 +275,8 @@ export function assertPayloadEntityIdMatch(
     collection === "payroll" ||
     collection === "membership" ||
     collection === "leaveConfig" ||
-    collection === "staffRewardSettings"
+    collection === "staffRewardSettings" ||
+    collection === "customerRewardSettings"
   )
     return;
   if (!("id" in payload)) return;

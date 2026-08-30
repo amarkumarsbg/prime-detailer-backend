@@ -311,6 +311,17 @@ model Customer {
   organization   Organization @relation(fields: [organizationId], references: [id])
   vehicles       Vehicle[]
 
+  /** Customer portal login (set by admin/staff; nullable until first password is issued). */
+  passwordHash       String?
+  /** When true, client should force a password change before using the portal. */
+  mustChangePassword Boolean   @default(true)
+  /** Staff `User.id` who last set the customer's portal password, when tracked. */
+  passwordCreatedBy  String?
+  /** Last time the portal login password hash was replaced. */
+  passwordUpdatedAt  DateTime?
+  /** Set on successful customer portal login. */
+  lastLoginAt        DateTime?
+
   @@index([organizationId])
   @@index([referralCode])
 }

@@ -1,5 +1,5 @@
 import type { UserRole } from "@prisma/client";
-import type { AuthUser } from "../middleware/auth.js";
+import type { AuthUser, AppRole } from "../middleware/auth.js";
 import { prisma } from "./prisma.js";
 import {
   isArrayCollection,
@@ -34,7 +34,7 @@ export type BranchScope = {
   allowedBranchIds: string[] | null;
 };
 
-export function canUseOrgWideBranchScope(role: UserRole): boolean {
+export function canUseOrgWideBranchScope(role: AppRole): boolean {
   return (ORG_WIDE_BRANCH_ROLES as readonly string[]).includes(role);
 }
 
