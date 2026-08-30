@@ -12,9 +12,12 @@ import {
   selectAchievedTier,
   calcRewardPool,
   filterEligibleStaff,
+  filterEligibleStaffForRole,
   isStaffEligible,
   calcSharePerStaff,
+  computeRoleBreakdown,
   computePeriodResult,
+  normalizeRoleKey,
   round2,
   type RevenueInvoice,
   type EligibleStaffCandidate,
@@ -117,13 +120,14 @@ describe("calcRevenue", () => {
 });
 
 // ---------------------------------------------------------------------------
-// selectAchievedTier
+// selectAchievedTier (generic utility — no longer used for "highest wins";
+// each tier is evaluated independently by role in computeRoleBreakdown)
 // ---------------------------------------------------------------------------
 describe("selectAchievedTier", () => {
   const tiers: CompanyTargetTier[] = [
-    { targetAmount: 50000, rewardPercent: 5 },
-    { targetAmount: 75000, rewardPercent: 7 },
-    { targetAmount: 90000, rewardPercent: 8 },
+    { targetAmount: 50000, rewardPercent: 5, role: "MECHANIC" },
+    { targetAmount: 75000, rewardPercent: 7, role: "SUPERVISOR" },
+    { targetAmount: 90000, rewardPercent: 8, role: "MANAGER" },
   ];
 
   it("returns highest achieved tier when revenue >= targetAmount", () => {
@@ -251,6 +255,61 @@ describe("filterEligibleStaff", () => {
 });
 
 // ---------------------------------------------------------------------------
+// normalizeRoleKey
+// ---------------------------------------------------------------------------
+describe("normalizeRoleKey", () => {
+  it("uppercases and normalizes spaces/hyphens to underscores", () => {
+    assert.equal(normalizeRoleKey("Branch Manager"), "BRANCH_MANAGER");
+    assert.equal(normalizeRoleKey("branch-manager"), "BRANCH_MANAGER");
+    assert.equal(normalizeRoleKey("BRANCH_MANAGER"), "BRANCH_MANAGER");
+  });
+
+  it("normalizes simple single-word roles", () => {
+    assert.equal(normalizeRoleKey("Mechanic"), "MECHANIC");
+    assert.equal(normalizeRoleKey("supervisor"), "SUPERVISOR");
+  });
+
+  it("trims surrounding whitespace", () => {
+    assert.equal(normalizeRoleKey("  Manager  "), "MANAGER");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// filterEligibleStaffForRole
+// ---------------------------------------------------------------------------
+describe("filterEligibleStaffForRole", () => {
+  const periodEnd = new Date(Date.UTC(2026, 0, 31, 23, 59, 59, 999));
+
+  const staff: EligibleStaffCandidate[] = [
+    { id: "rahul", role: "MECHANIC", isActive: true, joiningDate: "2025-01-01" },
+    { id: "sneha", role: "SUPERVISOR", isActive: true, joiningDate: "2025-01-02" },
+    { id: "manager1", role: "MANAGER", isActive: true, joiningDate: "2025-01-03" },
+    { id: "vikram", role: "BRANCH_MANAGER", isActive: true, joiningDate: "2025-01-04" },
+    { id: "other-mechanic", role: "MECHANIC", isActive: true, joiningDate: "2025-01-05" },
+  ];
+
+  it("only returns staff matching the given role (case/spacing-insensitive)", () => {
+    const mechanics = filterEligibleStaffForRole(staff, periodEnd, "Mechanic");
+    assert.deepEqual(mechanics.map((s) => s.id).sort(), ["other-mechanic", "rahul"]);
+  });
+
+  it("matches 'Branch Manager' label to stored 'BRANCH_MANAGER' role", () => {
+    const bms = filterEligibleStaffForRole(staff, periodEnd, "Branch Manager");
+    assert.deepEqual(bms.map((s) => s.id), ["vikram"]);
+  });
+
+  it("matches Supervisor role", () => {
+    const supervisors = filterEligibleStaffForRole(staff, periodEnd, "Supervisor");
+    assert.deepEqual(supervisors.map((s) => s.id), ["sneha"]);
+  });
+
+  it("returns empty array when no staff match the role", () => {
+    const receptionists = filterEligibleStaffForRole(staff, periodEnd, "Receptionist");
+    assert.deepEqual(receptionists, []);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // calcSharePerStaff
 // ---------------------------------------------------------------------------
 describe("calcSharePerStaff", () => {
@@ -286,26 +345,174 @@ describe("round2", () => {
 });
 
 // ---------------------------------------------------------------------------
-// computePeriodResult — deterministic acceptance scenarios
+// computeRoleBreakdown — independent per-role tiers (canonical ticket scenario)
+//
+// Rahul/Mechanic → Tier 1 (5,000 @ 1%), Sneha/Supervisor → Tier 2 (10,000 @ 2%),
+// (Manager) → Tier 3 (30,000 @ 3%), Vikram/Branch Manager → Tier 4 (40,000 @ 4%).
+// Each role's tier is independent: whichever tiers are achieved by revenue each
+// contribute their own pool, split only among staff of that tier's role. There
+// is no single "highest tier wins" winner.
 // ---------------------------------------------------------------------------
-describe("computePeriodResult — acceptance scenarios", () => {
-  const tiers: CompanyTargetTier[] = [
-    { targetAmount: 50000, rewardPercent: 5 },
-    { targetAmount: 90000, rewardPercent: 8 },
+describe("computeRoleBreakdown — independent per-role tiers", () => {
+  const ticketTiers: CompanyTargetTier[] = [
+    { targetAmount: 5000, rewardPercent: 1, role: "Mechanic" },
+    { targetAmount: 10000, rewardPercent: 2, role: "Supervisor" },
+    { targetAmount: 30000, rewardPercent: 3, role: "Manager" },
+    { targetAmount: 40000, rewardPercent: 4, role: "Branch Manager" },
+  ];
+
+  const periodEnd = new Date(Date.UTC(2026, 0, 31, 23, 59, 59, 999));
+
+  const ticketStaff: EligibleStaffCandidate[] = [
+    { id: "rahul", role: "MECHANIC", isActive: true, joiningDate: "2025-01-01" },
+    { id: "sneha", role: "SUPERVISOR", isActive: true, joiningDate: "2025-01-02" },
+    { id: "manager1", role: "MANAGER", isActive: true, joiningDate: "2025-01-03" },
+    { id: "vikram", role: "BRANCH_MANAGER", isActive: true, joiningDate: "2025-01-04" },
+  ];
+
+  it("when revenue clears all 4 targets, all 4 tiers are achieved simultaneously — no single winner", () => {
+    const revenue = 45000; // >= 5000, 10000, 30000, and 40000
+    const breakdown = computeRoleBreakdown(revenue, ticketTiers, ticketStaff, periodEnd);
+
+    assert.equal(breakdown.length, 4);
+    assert.ok(breakdown.every((r) => r.achieved === true));
+  });
+
+  it("Rahul (Mechanic, Tier 1): pool = revenue*1%, share = pool / mechanic count", () => {
+    const revenue = 45000;
+    const breakdown = computeRoleBreakdown(revenue, ticketTiers, ticketStaff, periodEnd);
+    const mechanicRow = breakdown.find((r) => r.role === "Mechanic")!;
+
+    assert.equal(mechanicRow.achieved, true);
+    assert.equal(mechanicRow.pool, round2((45000 * 1) / 100)); // 450
+    assert.equal(mechanicRow.eligibleStaffCount, 1);
+    assert.equal(mechanicRow.sharePerStaff, 450);
+  });
+
+  it("Sneha (Supervisor, Tier 2): pool = revenue*2%, share = pool / supervisor count", () => {
+    const revenue = 45000;
+    const breakdown = computeRoleBreakdown(revenue, ticketTiers, ticketStaff, periodEnd);
+    const supervisorRow = breakdown.find((r) => r.role === "Supervisor")!;
+
+    assert.equal(supervisorRow.achieved, true);
+    assert.equal(supervisorRow.pool, round2((45000 * 2) / 100)); // 900
+    assert.equal(supervisorRow.eligibleStaffCount, 1);
+    assert.equal(supervisorRow.sharePerStaff, 900);
+  });
+
+  it("Manager (Tier 3): pool = revenue*3%, share = pool / manager count", () => {
+    const revenue = 45000;
+    const breakdown = computeRoleBreakdown(revenue, ticketTiers, ticketStaff, periodEnd);
+    const managerRow = breakdown.find((r) => r.role === "Manager")!;
+
+    assert.equal(managerRow.achieved, true);
+    assert.equal(managerRow.pool, round2((45000 * 3) / 100)); // 1350
+    assert.equal(managerRow.eligibleStaffCount, 1);
+    assert.equal(managerRow.sharePerStaff, 1350);
+  });
+
+  it("Vikram (Branch Manager, Tier 4): pool = revenue*4%, share = pool / BM count", () => {
+    const revenue = 45000;
+    const breakdown = computeRoleBreakdown(revenue, ticketTiers, ticketStaff, periodEnd);
+    const bmRow = breakdown.find((r) => r.role === "Branch Manager")!;
+
+    assert.equal(bmRow.achieved, true);
+    assert.equal(bmRow.pool, round2((45000 * 4) / 100)); // 1800
+    assert.equal(bmRow.eligibleStaffCount, 1);
+    assert.equal(bmRow.sharePerStaff, 1800);
+  });
+
+  it("mid-range revenue achieves only the lower tiers — higher tiers are NOT achieved (independent, not highest-wins)", () => {
+    const revenue = 15000; // clears Tier 1 (5000) and Tier 2 (10000), not Tier 3 (30000) or Tier 4 (40000)
+    const breakdown = computeRoleBreakdown(revenue, ticketTiers, ticketStaff, periodEnd);
+
+    const mechanicRow = breakdown.find((r) => r.role === "Mechanic")!;
+    const supervisorRow = breakdown.find((r) => r.role === "Supervisor")!;
+    const managerRow = breakdown.find((r) => r.role === "Manager")!;
+    const bmRow = breakdown.find((r) => r.role === "Branch Manager")!;
+
+    assert.equal(mechanicRow.achieved, true);
+    assert.equal(supervisorRow.achieved, true);
+    assert.equal(managerRow.achieved, false);
+    assert.equal(bmRow.achieved, false);
+
+    // Not-achieved tiers pay out nothing, regardless of eligible staff existing.
+    assert.equal(managerRow.pool, 0);
+    assert.equal(managerRow.sharePerStaff, 0);
+    assert.equal(bmRow.pool, 0);
+    assert.equal(bmRow.sharePerStaff, 0);
+
+    // Achieved tiers still pay their own independent pool.
+    assert.equal(mechanicRow.sharePerStaff, round2((15000 * 1) / 100));
+    assert.equal(supervisorRow.sharePerStaff, round2((15000 * 2) / 100));
+  });
+
+  it("multiple staff in the same role split that role's pool", () => {
+    const staffWithTwoMechanics: EligibleStaffCandidate[] = [
+      ...ticketStaff,
+      { id: "rahul2", role: "MECHANIC", isActive: true, joiningDate: "2025-01-05" },
+    ];
+    const revenue = 45000;
+    const breakdown = computeRoleBreakdown(revenue, ticketTiers, staffWithTwoMechanics, periodEnd);
+    const mechanicRow = breakdown.find((r) => r.role === "Mechanic")!;
+
+    assert.equal(mechanicRow.eligibleStaffCount, 2);
+    assert.equal(mechanicRow.sharePerStaff, round2(450 / 2)); // 225 each
+  });
+
+  it("zero eligible staff for an achieved tier's role → sharePerStaff 0, no divide-by-zero", () => {
+    const staffWithoutManager = ticketStaff.filter((s) => s.id !== "manager1");
+    const revenue = 45000;
+    const breakdown = computeRoleBreakdown(revenue, ticketTiers, staffWithoutManager, periodEnd);
+    const managerRow = breakdown.find((r) => r.role === "Manager")!;
+
+    assert.equal(managerRow.achieved, true);
+    assert.equal(managerRow.eligibleStaffCount, 0);
+    assert.equal(managerRow.sharePerStaff, 0);
+  });
+
+  it("other roles are unaffected by another role's tier not being achieved", () => {
+    const revenue = 5000; // only Tier 1 (Mechanic) is achieved
+    const breakdown = computeRoleBreakdown(revenue, ticketTiers, ticketStaff, periodEnd);
+
+    const mechanicRow = breakdown.find((r) => r.role === "Mechanic")!;
+    assert.equal(mechanicRow.achieved, true);
+    assert.equal(mechanicRow.sharePerStaff, round2((5000 * 1) / 100));
+
+    for (const role of ["Supervisor", "Manager", "Branch Manager"]) {
+      const row = breakdown.find((r) => r.role === role)!;
+      assert.equal(row.achieved, false);
+      assert.equal(row.sharePerStaff, 0);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computePeriodResult — staff-specific fields, per-role model
+// ---------------------------------------------------------------------------
+describe("computePeriodResult — staff-specific fields (per-role model)", () => {
+  const ticketTiers: CompanyTargetTier[] = [
+    { targetAmount: 5000, rewardPercent: 1, role: "Mechanic" },
+    { targetAmount: 10000, rewardPercent: 2, role: "Supervisor" },
+    { targetAmount: 30000, rewardPercent: 3, role: "Manager" },
+    { targetAmount: 40000, rewardPercent: 4, role: "Branch Manager" },
   ];
 
   const periodStart = new Date(Date.UTC(2026, 0, 1));
   const periodEnd = new Date(Date.UTC(2026, 0, 31, 23, 59, 59, 999));
 
-  // day 1 — eligible
-  const staff: EligibleStaffCandidate[] = [
-    { id: "s1", role: "MECHANIC", isActive: true, joiningDate: "2025-01-01" },
+  const ticketStaff: EligibleStaffCandidate[] = [
+    { id: "rahul", role: "MECHANIC", isActive: true, joiningDate: "2025-01-01" },
+    { id: "sneha", role: "SUPERVISOR", isActive: true, joiningDate: "2025-01-02" },
+    { id: "manager1", role: "MANAGER", isActive: true, joiningDate: "2025-01-03" },
+    { id: "vikram", role: "BRANCH_MANAGER", isActive: true, joiningDate: "2025-01-04" },
   ];
 
-  it("Scenario A: revenue 55000, tier 50000 @ 5%, 1 eligible staff → share 2750", () => {
-    const invoices: RevenueInvoice[] = [
-      { id: "i1", status: "ISSUED", grandTotal: 55000, createdAt: "2026-01-15T10:00:00Z" },
-    ];
+  const invoices45k: RevenueInvoice[] = [
+    { id: "i1", status: "ISSUED", grandTotal: 45000, createdAt: "2026-01-15T00:00:00Z" },
+  ];
+
+  it("Sneha (Supervisor) gets her own tier's share, independent of other roles' tiers", () => {
     const result = computePeriodResult({
       periodLabel: "Jan 2026",
       periodType: "MONTHLY",
@@ -313,26 +520,46 @@ describe("computePeriodResult — acceptance scenarios", () => {
       periodYear: 2026,
       periodStart,
       periodEnd,
-      allInvoices: invoices,
-      tiers,
-      allStaff: staff,
+      allInvoices: invoices45k,
+      tiers: ticketTiers,
+      allStaff: ticketStaff,
+      staffId: "sneha",
     });
-    assert.equal(result.revenue, 55000);
-    assert.equal(result.targetAmount, 50000);
-    assert.equal(result.rewardPercent, 5);
-    assert.equal(result.totalRewardPool, 2750);
+
+    assert.equal(result.revenue, 45000);
+    assert.equal(result.staffRole, "SUPERVISOR");
+    assert.equal(result.targetAmount, 10000);
+    assert.equal(result.rewardPercent, 2);
     assert.equal(result.eligibleStaffCount, 1);
-    assert.equal(result.sharePerStaff, 2750);
+    assert.equal(result.sharePerStaff, 900); // 45000 * 2%
+    assert.equal(result.notEligible, false);
+    // totalRewardPool is the sum across ALL achieved tiers/roles, not just Sneha's.
+    assert.equal(result.totalRewardPool, round2(450 + 900 + 1350 + 1800));
   });
 
-  it("Scenario B: revenue 90000, tier 90000 @ 8%, 2 eligible staff → share 3600 each", () => {
-    // Both joined on day 1 and day 3 (both <= 5)
-    const staff2: EligibleStaffCandidate[] = [
-      { id: "s1", role: "MECHANIC", isActive: true, joiningDate: "2025-01-01" },
-      { id: "s2", role: "ADMIN", isActive: true, joiningDate: "2024-06-03" },
-    ];
-    const invoices: RevenueInvoice[] = [
-      { id: "i1", status: "PAID", grandTotal: 90000, createdAt: "2026-01-20T10:00:00Z" },
+  it("Vikram (Branch Manager) gets his own tier's share", () => {
+    const result = computePeriodResult({
+      periodLabel: "Jan 2026",
+      periodType: "MONTHLY",
+      periodMonth: 1,
+      periodYear: 2026,
+      periodStart,
+      periodEnd,
+      allInvoices: invoices45k,
+      tiers: ticketTiers,
+      allStaff: ticketStaff,
+      staffId: "vikram",
+    });
+
+    assert.equal(result.staffRole, "BRANCH_MANAGER");
+    assert.equal(result.targetAmount, 40000);
+    assert.equal(result.rewardPercent, 4);
+    assert.equal(result.sharePerStaff, 1800); // 45000 * 4%
+  });
+
+  it("a role whose tier is NOT achieved gets sharePerStaff 0 even though other tiers were achieved", () => {
+    const lowRevenue: RevenueInvoice[] = [
+      { id: "i1", status: "ISSUED", grandTotal: 15000, createdAt: "2026-01-15T00:00:00Z" },
     ];
     const result = computePeriodResult({
       periodLabel: "Jan 2026",
@@ -341,46 +568,20 @@ describe("computePeriodResult — acceptance scenarios", () => {
       periodYear: 2026,
       periodStart,
       periodEnd,
-      allInvoices: invoices,
-      tiers,
-      allStaff: staff2,
+      allInvoices: lowRevenue,
+      tiers: ticketTiers,
+      allStaff: ticketStaff,
+      staffId: "vikram", // Branch Manager tier (40000) not achieved at revenue=15000
     });
-    assert.equal(result.revenue, 90000);
-    assert.equal(result.targetAmount, 90000);
-    assert.equal(result.rewardPercent, 8);
-    assert.equal(result.totalRewardPool, 7200);
-    assert.equal(result.eligibleStaffCount, 2);
-    assert.equal(result.sharePerStaff, 3600);
-  });
 
-  it("staff with joining day > 5 is excluded from eligible count", () => {
-    // joined on day 10 — ineligible even though active and before period end
-    const staffDay10: EligibleStaffCandidate[] = [
-      { id: "d10", role: "MECHANIC", isActive: true, joiningDate: "2025-03-10" },
-    ];
-    const invoices: RevenueInvoice[] = [
-      { id: "i1", status: "ISSUED", grandTotal: 55000, createdAt: "2026-01-10T00:00:00Z" },
-    ];
-    const result = computePeriodResult({
-      periodLabel: "Jan 2026",
-      periodType: "MONTHLY",
-      periodMonth: 1,
-      periodYear: 2026,
-      periodStart,
-      periodEnd,
-      allInvoices: invoices,
-      tiers,
-      allStaff: staffDay10,
-    });
-    assert.equal(result.eligibleStaffCount, 0);
+    assert.equal(result.achievedTierIndex, 3);
     assert.equal(result.sharePerStaff, 0);
   });
 
-  it("final combined total: individualNet + companyShare", () => {
-    // This is a structural check — the engine correctly returns sharePerStaff
-    // which the service adds to individualNet for finalCombined.
-    const invoices: RevenueInvoice[] = [
-      { id: "i1", status: "ISSUED", grandTotal: 55000, createdAt: "2026-01-15T00:00:00Z" },
+  it("staffId with a role that has no configured tier gets null tier fields and 0 share", () => {
+    const staffWithReceptionist: EligibleStaffCandidate[] = [
+      ...ticketStaff,
+      { id: "recep1", role: "RECEPTIONIST", isActive: true, joiningDate: "2025-01-05" },
     ];
     const result = computePeriodResult({
       periodLabel: "Jan 2026",
@@ -389,43 +590,23 @@ describe("computePeriodResult — acceptance scenarios", () => {
       periodYear: 2026,
       periodStart,
       periodEnd,
-      allInvoices: invoices,
-      tiers,
-      allStaff: staff,
+      allInvoices: invoices45k,
+      tiers: ticketTiers,
+      allStaff: staffWithReceptionist,
+      staffId: "recep1",
     });
-    // Simulate: individualNet=1000 + companyShare=2750 = 3750
-    const simulatedIndividualNet = 1000;
-    assert.equal(
-      Math.round((simulatedIndividualNet + result.sharePerStaff) * 100) / 100,
-      3750
-    );
-  });
 
-  it("zero eligible staff → sharePerStaff 0, no divide-by-zero", () => {
-    const invoices: RevenueInvoice[] = [
-      { id: "i1", status: "ISSUED", grandTotal: 55000, createdAt: "2026-01-10T00:00:00Z" },
-    ];
-    const result = computePeriodResult({
-      periodLabel: "Jan 2026",
-      periodType: "MONTHLY",
-      periodMonth: 1,
-      periodYear: 2026,
-      periodStart,
-      periodEnd,
-      allInvoices: invoices,
-      tiers,
-      allStaff: [],
-    });
-    assert.equal(result.eligibleStaffCount, 0);
+    assert.equal(result.staffRole, "RECEPTIONIST");
+    assert.equal(result.achievedTierIndex, null);
+    assert.equal(result.targetAmount, null);
+    assert.equal(result.rewardPercent, null);
     assert.equal(result.sharePerStaff, 0);
   });
 
   it("notEligible=true when staffId joined after period end", () => {
     const lateStaff: EligibleStaffCandidate[] = [
+      ...ticketStaff,
       { id: "late1", role: "MECHANIC", isActive: true, joiningDate: "2026-02-01" },
-    ];
-    const invoices: RevenueInvoice[] = [
-      { id: "i1", status: "ISSUED", grandTotal: 55000, createdAt: "2026-01-10T00:00:00Z" },
     ];
     const result = computePeriodResult({
       periodLabel: "Jan 2026",
@@ -434,20 +615,19 @@ describe("computePeriodResult — acceptance scenarios", () => {
       periodYear: 2026,
       periodStart,
       periodEnd,
-      allInvoices: invoices,
-      tiers,
+      allInvoices: invoices45k,
+      tiers: ticketTiers,
       allStaff: lateStaff,
       staffId: "late1",
     });
     assert.equal(result.notEligible, true);
+    assert.equal(result.sharePerStaff, 0);
   });
 
   it("notEligible=true when staffId has joining day > 5", () => {
     const day10Staff: EligibleStaffCandidate[] = [
+      ...ticketStaff,
       { id: "d10", role: "MECHANIC", isActive: true, joiningDate: "2025-06-10" },
-    ];
-    const invoices: RevenueInvoice[] = [
-      { id: "i1", status: "ISSUED", grandTotal: 55000, createdAt: "2026-01-10T00:00:00Z" },
     ];
     const result = computePeriodResult({
       periodLabel: "Jan 2026",
@@ -456,8 +636,8 @@ describe("computePeriodResult — acceptance scenarios", () => {
       periodYear: 2026,
       periodStart,
       periodEnd,
-      allInvoices: invoices,
-      tiers,
+      allInvoices: invoices45k,
+      tiers: ticketTiers,
       allStaff: day10Staff,
       staffId: "d10",
     });
@@ -465,10 +645,7 @@ describe("computePeriodResult — acceptance scenarios", () => {
     assert.equal(result.sharePerStaff, 0);
   });
 
-  it("notEligible=false when staffId joined on day 1 before period end", () => {
-    const invoices: RevenueInvoice[] = [
-      { id: "i1", status: "ISSUED", grandTotal: 55000, createdAt: "2026-01-10T00:00:00Z" },
-    ];
+  it("notEligible=false and correct share when staffId joined on day 1 before period end", () => {
     const result = computePeriodResult({
       periodLabel: "Jan 2026",
       periodType: "MONTHLY",
@@ -476,18 +653,16 @@ describe("computePeriodResult — acceptance scenarios", () => {
       periodYear: 2026,
       periodStart,
       periodEnd,
-      allInvoices: invoices,
-      tiers,
-      allStaff: staff,
-      staffId: "s1",
+      allInvoices: invoices45k,
+      tiers: ticketTiers,
+      allStaff: ticketStaff,
+      staffId: "rahul",
     });
     assert.equal(result.notEligible, false);
+    assert.equal(result.sharePerStaff, 450);
   });
 
-  it("returns achievedTierIndex=null when no tier achieved", () => {
-    const invoices: RevenueInvoice[] = [
-      { id: "i1", status: "ISSUED", grandTotal: 10000, createdAt: "2026-01-10T00:00:00Z" },
-    ];
+  it("unknown staffId returns notEligible=true", () => {
     const result = computePeriodResult({
       periodLabel: "Jan 2026",
       periodType: "MONTHLY",
@@ -495,13 +670,52 @@ describe("computePeriodResult — acceptance scenarios", () => {
       periodYear: 2026,
       periodStart,
       periodEnd,
-      allInvoices: invoices,
-      tiers,
-      allStaff: staff,
+      allInvoices: invoices45k,
+      tiers: ticketTiers,
+      allStaff: ticketStaff,
+      staffId: "does-not-exist",
     });
-    assert.equal(result.achievedTierIndex, null);
-    assert.equal(result.totalRewardPool, 0);
+    assert.equal(result.notEligible, true);
     assert.equal(result.sharePerStaff, 0);
+  });
+
+  it("final combined total: individualNet + staff's own company share", () => {
+    const result = computePeriodResult({
+      periodLabel: "Jan 2026",
+      periodType: "MONTHLY",
+      periodMonth: 1,
+      periodYear: 2026,
+      periodStart,
+      periodEnd,
+      allInvoices: invoices45k,
+      tiers: ticketTiers,
+      allStaff: ticketStaff,
+      staffId: "sneha",
+    });
+    const simulatedIndividualNet = 1000;
+    assert.equal(
+      Math.round((simulatedIndividualNet + result.sharePerStaff) * 100) / 100,
+      1900 // 1000 + 900
+    );
+  });
+
+  it("no staffId provided → staff-specific fields default to null/0, roleBreakdown still populated", () => {
+    const result = computePeriodResult({
+      periodLabel: "Jan 2026",
+      periodType: "MONTHLY",
+      periodMonth: 1,
+      periodYear: 2026,
+      periodStart,
+      periodEnd,
+      allInvoices: invoices45k,
+      tiers: ticketTiers,
+      allStaff: ticketStaff,
+    });
+    assert.equal(result.staffRole, null);
+    assert.equal(result.achievedTierIndex, null);
+    assert.equal(result.sharePerStaff, 0);
+    assert.equal(result.notEligible, false);
+    assert.equal(result.roleBreakdown.length, 4);
   });
 });
 

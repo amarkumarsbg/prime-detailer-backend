@@ -120,20 +120,24 @@ export const staffRewardSettingsPayloadSchema = z
     companyTargetPeriod: z.enum(["MONTHLY", "QUARTERLY", "HALF_YEARLY", "YEARLY"]).optional(),
     companyTargetTiers: z
       .array(
-        z.object({
-          targetAmount: z.number(),
-          rewardPercent: z.number(),
-        })
+        z
+          .object({
+            targetAmount: z.number(),
+            rewardPercent: z.number(),
+          })
+          .passthrough() // preserve extra per-tier fields (e.g. `role`) sent by the frontend
       )
       .optional(),
     companyTargetFrequencyTiers: z
       .record(
         z.enum(["MONTHLY", "QUARTERLY", "HALF_YEARLY", "YEARLY"]),
         z.array(
-          z.object({
-            targetAmount: z.number(),
-            rewardPercent: z.number(),
-          })
+          z
+            .object({
+              targetAmount: z.number(),
+              rewardPercent: z.number(),
+            })
+            .passthrough() // preserve extra per-tier fields (e.g. `role`) sent by the frontend
         )
       )
       .optional(),

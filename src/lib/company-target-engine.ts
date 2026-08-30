@@ -4,15 +4,22 @@
  *
  * Business rules:
  *  - Revenue basis: invoice grandTotal for ISSUED / PARTIAL / PARTIALLY_PAID / PAID invoices only.
- *  - Tier selection: highest tier where revenue >= targetAmount.
- *  - Pool: revenue * rewardPercent / 100.
- *  - Eligible staff: active, non-SUPER_ADMIN, joiningDate <= periodEnd.
- *  - Share: pool / eligibleCount (zero-safe).
+ *  - Each tier is tied to a specific staff role and is evaluated INDEPENDENTLY:
+ *    every tier whose targetAmount is met by revenue contributes its own pool,
+ *    split only among eligible staff of THAT tier's role. There is no single
+ *    "highest tier wins" — a Mechanic tier, a Supervisor tier, a Manager tier,
+ *    etc. can all be achieved simultaneously and each pays out independently.
+ *  - Pool (per achieved tier): revenue * tier.rewardPercent / 100.
+ *  - Eligible staff (per tier): active, non-SUPER_ADMIN, joiningDate <= periodEnd,
+ *    joining day-of-month <= 5, AND role matches the tier's role.
+ *  - Share (per tier): pool / eligibleCount for that role (zero-safe).
  */
 
 export interface CompanyTargetTier {
   targetAmount: number;
   rewardPercent: number;
+  /** Staff role this tier's pool is scoped to (e.g. "Mechanic", "Branch Manager"). */
+  role: string;
 }
 
 /** Subset of Invoice fields needed for revenue computation. */
@@ -32,17 +39,41 @@ export interface EligibleStaffCandidate {
   joiningDate?: string | null;
 }
 
+/** Per-tier (= per-role) breakdown row for a period. */
+export interface RoleTierBreakdown {
+  role: string;
+  tierIndex: number;
+  targetAmount: number;
+  rewardPercent: number;
+  /** True when revenue >= targetAmount for this tier. */
+  achieved: boolean;
+  /** revenue * rewardPercent / 100 when achieved, else 0. */
+  pool: number;
+  /** Active, non-SUPER_ADMIN, eligible-by-date staff whose role matches this tier. */
+  eligibleStaffCount: number;
+  /** pool / eligibleStaffCount, 0-safe; 0 when the tier isn't achieved. */
+  sharePerStaff: number;
+}
+
 export interface CompanyTargetPeriodResult {
   periodLabel: string;
   periodType: string;
   periodMonth: number;
   periodYear: number;
   revenue: number;
+  /** Sum of every achieved tier's pool across all roles. */
+  totalRewardPool: number;
+  /** One row per configured tier — independent achievement per role. */
+  roleBreakdown: RoleTierBreakdown[];
+  /** Role of the requested staffId, when provided (null otherwise / unknown staff). */
+  staffRole: string | null;
+  /** Index into `roleBreakdown` for the tier matching the requested staff's role, if any. */
   achievedTierIndex: number | null;
   targetAmount: number | null;
   rewardPercent: number | null;
-  totalRewardPool: number;
+  /** Eligible-staff count for the requested staff's own role-tier (0 if no matching tier). */
   eligibleStaffCount: number;
+  /** The requested staff's own share (0 if ineligible, tier not achieved, or no matching tier). */
   sharePerStaff: number;
   /** True when the requested staffId is not eligible for this period. */
   notEligible: boolean;
@@ -84,8 +115,19 @@ export function calcRevenue(invoices: RevenueInvoice[]): number {
 }
 
 /**
+ * Normalize a role label for comparison (case/spacing/punctuation-insensitive).
+ * e.g. "Branch Manager" / "branch-manager" / "BRANCH_MANAGER" all normalize to "BRANCH_MANAGER".
+ */
+export function normalizeRoleKey(role: string): string {
+  return role.trim().toUpperCase().replace(/[\s-]+/g, "_");
+}
+
+/**
  * Select the highest achieved tier where revenue >= targetAmount.
- * Returns null if no tier is achieved.
+ * Generic utility retained for callers that need "single highest tier"
+ * semantics; the main per-role engine (`computeRoleBreakdown` /
+ * `computePeriodResult`) no longer uses "highest tier wins" — every tier is
+ * evaluated independently per its own role.
  */
 export function selectAchievedTier(
   revenue: number,
@@ -140,6 +182,19 @@ export function filterEligibleStaff(
 }
 
 /**
+ * Eligible staff (see `filterEligibleStaff`) further narrowed to a specific
+ * tier's role (case/spacing-insensitive match via `normalizeRoleKey`).
+ */
+export function filterEligibleStaffForRole(
+  staff: EligibleStaffCandidate[],
+  periodEnd: Date,
+  role: string
+): EligibleStaffCandidate[] {
+  const key = normalizeRoleKey(role);
+  return filterEligibleStaff(staff, periodEnd).filter((s) => normalizeRoleKey(s.role) === key);
+}
+
+/**
  * Whether a specific staff member is eligible for the period.
  */
 export function isStaffEligible(
@@ -165,7 +220,39 @@ export function round2(value: number): number {
 }
 
 /**
- * Orchestrate a single period's company target result.
+ * Evaluate every configured tier independently against revenue: a tier is
+ * "achieved" when revenue >= its targetAmount, in which case its pool is
+ * split only among eligible staff whose role matches that tier's role.
+ * Tiers for different roles do not affect each other (no "highest wins").
+ */
+export function computeRoleBreakdown(
+  revenue: number,
+  tiers: CompanyTargetTier[],
+  allStaff: EligibleStaffCandidate[],
+  periodEnd: Date
+): RoleTierBreakdown[] {
+  return tiers.map((tier, index) => {
+    const achieved = revenue >= tier.targetAmount;
+    const pool = achieved ? calcRewardPool(revenue, tier.rewardPercent) : 0;
+    const eligibleStaffCount = filterEligibleStaffForRole(allStaff, periodEnd, tier.role).length;
+    const sharePerStaff = achieved ? calcSharePerStaff(pool, eligibleStaffCount) : 0;
+    return {
+      role: tier.role,
+      tierIndex: index,
+      targetAmount: tier.targetAmount,
+      rewardPercent: tier.rewardPercent,
+      achieved,
+      pool,
+      eligibleStaffCount,
+      sharePerStaff,
+    };
+  });
+}
+
+/**
+ * Orchestrate a single period's company target result: computes the
+ * independent per-role tier breakdown, plus (when `staffId` is given) the
+ * specific numbers relevant to that one staff member's own role-tier.
  */
 export function computePeriodResult(opts: {
   periodLabel: string;
@@ -177,7 +264,7 @@ export function computePeriodResult(opts: {
   allInvoices: RevenueInvoice[];
   tiers: CompanyTargetTier[];
   allStaff: EligibleStaffCandidate[];
-  /** Optional: check not-eligible flag for this staff. */
+  /** Optional: compute staff-specific fields (own tier match, share, eligibility). */
   staffId?: string;
 }): CompanyTargetPeriodResult {
   const {
@@ -195,16 +282,36 @@ export function computePeriodResult(opts: {
 
   const validInvoices = filterRevenueInvoices(allInvoices, periodStart, periodEnd);
   const revenue = calcRevenue(validInvoices);
-  const achieved = selectAchievedTier(revenue, tiers);
-  const pool = achieved ? calcRewardPool(revenue, achieved.tier.rewardPercent) : 0;
-  const eligibleStaff = filterEligibleStaff(allStaff, periodEnd);
-  const eligibleStaffCount = eligibleStaff.length;
-  const sharePerStaff = calcSharePerStaff(pool, eligibleStaffCount);
+  const roleBreakdown = computeRoleBreakdown(revenue, tiers, allStaff, periodEnd);
+  const totalRewardPool = round2(roleBreakdown.reduce((sum, r) => sum + r.pool, 0));
 
+  let staffRole: string | null = null;
+  let achievedTierIndex: number | null = null;
+  let targetAmount: number | null = null;
+  let rewardPercent: number | null = null;
+  let eligibleStaffCount = 0;
+  let sharePerStaff = 0;
   let notEligible = false;
+
   if (staffId) {
     const staffMember = allStaff.find((s) => s.id === staffId);
-    notEligible = staffMember ? !isStaffEligible(staffMember, periodEnd) : true;
+    if (!staffMember) {
+      notEligible = true;
+    } else {
+      staffRole = staffMember.role;
+      const eligible = isStaffEligible(staffMember, periodEnd);
+      notEligible = !eligible;
+
+      const roleKey = normalizeRoleKey(staffMember.role);
+      const matchingTier = roleBreakdown.find((r) => normalizeRoleKey(r.role) === roleKey);
+      if (matchingTier) {
+        achievedTierIndex = matchingTier.tierIndex;
+        targetAmount = matchingTier.targetAmount;
+        rewardPercent = matchingTier.rewardPercent;
+        eligibleStaffCount = matchingTier.eligibleStaffCount;
+        sharePerStaff = eligible ? matchingTier.sharePerStaff : 0;
+      }
+    }
   }
 
   return {
@@ -213,10 +320,12 @@ export function computePeriodResult(opts: {
     periodMonth,
     periodYear,
     revenue,
-    achievedTierIndex: achieved ? achieved.index : null,
-    targetAmount: achieved ? achieved.tier.targetAmount : null,
-    rewardPercent: achieved ? achieved.tier.rewardPercent : null,
-    totalRewardPool: pool,
+    totalRewardPool,
+    roleBreakdown,
+    staffRole,
+    achievedTierIndex,
+    targetAmount,
+    rewardPercent,
     eligibleStaffCount,
     sharePerStaff,
     notEligible,

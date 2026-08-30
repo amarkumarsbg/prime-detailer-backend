@@ -90,21 +90,25 @@ async function readStaff(organizationId: string): Promise<EligibleStaffCandidate
 // ---------------------------------------------------------------------------
 
 function extractTiers(settings: Record<string, unknown>, periodType: PeriodType): CompanyTargetTier[] {
+  const isValidTier = (t: unknown): t is CompanyTargetTier =>
+    typeof t === "object" &&
+    t !== null &&
+    typeof (t as Record<string, unknown>).targetAmount === "number" &&
+    typeof (t as Record<string, unknown>).rewardPercent === "number" &&
+    typeof (t as Record<string, unknown>).role === "string" &&
+    (t as Record<string, unknown>).role !== "";
+
   // Prefer frequency-specific tiers if present
   const freqTiers = settings.companyTargetFrequencyTiers;
   if (freqTiers && typeof freqTiers === "object" && !Array.isArray(freqTiers)) {
     const typed = freqTiers as Record<string, unknown>;
     if (Array.isArray(typed[periodType])) {
-      return (typed[periodType] as CompanyTargetTier[]).filter(
-        (t) => typeof t.targetAmount === "number" && typeof t.rewardPercent === "number"
-      );
+      return (typed[periodType] as unknown[]).filter(isValidTier);
     }
   }
   // Fall back to generic companyTargetTiers
   if (Array.isArray(settings.companyTargetTiers)) {
-    return (settings.companyTargetTiers as CompanyTargetTier[]).filter(
-      (t) => typeof t.targetAmount === "number" && typeof t.rewardPercent === "number"
-    );
+    return (settings.companyTargetTiers as unknown[]).filter(isValidTier);
   }
   return [];
 }
