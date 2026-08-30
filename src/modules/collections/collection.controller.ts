@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import type { UserRole } from "@prisma/client";
+import type { AppRole } from "../../middleware/auth.js";
 import {
   isArrayCollection,
   isSingletonCollection,
@@ -31,7 +31,7 @@ function forbidden(res: Response, message: string) {
 function assertPayrollAccess(
   res: Response,
   collection: string,
-  role: UserRole | undefined
+  role: AppRole | undefined
 ): boolean {
   if (collection !== "payroll") return true;
   if (role && (PAYROLL_ACCESS_ROLES as readonly string[]).includes(role)) return true;

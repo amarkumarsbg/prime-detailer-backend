@@ -1,39 +1,13 @@
-import { randomInt } from "node:crypto";
 import bcrypt from "bcryptjs";
 import type { Prisma, User as PrismaUser } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../lib/app-error.js";
 import { toStaffDirectoryEntry } from "../../lib/data-scope.js";
 import { assertCanCreateUser } from "../organization/organization-subscription.service.js";
+import { generateTemporaryPassword } from "../../lib/generate-password.js";
 
-function pickChar(set: string): string {
-  return set[randomInt(0, set.length)]!;
-}
+export { generateTemporaryPassword };
 
-/** Meets application password policy (mixed case, digit, symbol, length ≥ 8). */
-export function generateTemporaryPassword(): string {
-  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-  const lower = "abcdefghijkmnopqrstuvwxyz";
-  const digits = "23456789";
-  const special = "#@$%&*!?+-";
-  const all = upper + lower + digits + special;
-  const targetLen = 10;
-  const chars: string[] = [
-    pickChar(upper),
-    pickChar(lower),
-    pickChar(digits),
-    pickChar(special),
-  ];
-  while (chars.length < targetLen) chars.push(pickChar(all));
-  for (let i = chars.length - 1; i > 0; i--) {
-    const j = randomInt(0, i + 1);
-    const a = chars[i]!;
-    const b = chars[j]!;
-    chars[i] = b;
-    chars[j] = a;
-  }
-  return chars.join("");
-}
 
 
 /** Trim; empty string becomes null (clears optional HR fields / unique employeeCode). */

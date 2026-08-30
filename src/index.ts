@@ -25,6 +25,8 @@ import { organizationRouter } from "./modules/organization/organization.routes.j
 import { platformRouter } from "./modules/platform/platform.routes.js";
 import { jobsRouter } from "./modules/jobs/jobs.routes.js";
 import { rewardsRouter } from "./modules/rewards/rewards.routes.js";
+import { customerAuthRouter } from "./modules/customers/customer-auth.routes.js";
+import { customerBootstrapRouter } from "./modules/customers/customer-bootstrap.routes.js";
 import { isSwaggerEnabled, registerSwagger } from "./docs/register-swagger.js";
 import { publicRouter } from "./routes/public.routes.js";
 
@@ -217,6 +219,8 @@ app.use("/api/organization", organizationRouter);
 app.use("/api/platform", platformRouter);
 app.use("/api/jobs", jobsRouter);
 app.use("/api/rewards", rewardsRouter);
+app.use("/api/auth/customer", customerAuthRouter);
+app.use("/api/customer", customerBootstrapRouter);
 
 app.use(errorHandler);
 

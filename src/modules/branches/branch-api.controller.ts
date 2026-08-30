@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { BRANCH_MUTATION_ROLES } from "../../lib/rbac.js";
-import type { UserRole } from "@prisma/client";
+import type { AppRole } from "../../middleware/auth.js";
 import { prisma } from "../../lib/prisma.js";
 import { listBranchesApi, upsertBranchApi, patchBranchApi, getBranchDeletionBlockers, deleteBranchApi } from "./branch-api.service.js";
 
@@ -9,7 +9,7 @@ function forbidden(res: Response, message: string) {
   res.status(403).json({ data: null, error: { message } });
 }
 
-function canMutateBranch(role: UserRole | undefined): boolean {
+function canMutateBranch(role: AppRole | undefined): boolean {
   return role !== undefined && (BRANCH_MUTATION_ROLES as readonly string[]).includes(role);
 }
 

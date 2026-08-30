@@ -1,8 +1,10 @@
 import type { Customer as CustomerRow } from "@prisma/client";
+import bcrypt from "bcryptjs";
 import { prisma } from "../../lib/prisma.js";
 import { randomBytes } from "node:crypto";
 import { AppError } from "../../lib/app-error.js";
 import { REFERRAL_EXISTING_CUSTOMER_MESSAGE } from "../../lib/referral-eligibility.js";
+import { generateCustomerPassword } from "../../lib/generate-password.js";
 
 async function resolveAdvocateReferralCode(
   organizationId: string,
@@ -107,7 +109,11 @@ export async function createCustomer(data: {
   lastVisitDate?: string;
   isInactive?: boolean;
   emailVerified?: boolean;
-}) {
+  /** Customer-portal login password, set by admin/staff onboarding this customer. */
+  password?: string;
+  /** Staff `User.id` setting the password, when tracked. */
+  passwordCreatedBy?: string;
+}): Promise<{ customer: ReturnType<typeof toApiCustomer>; temporaryPassword?: string }> {
   const norm = normalizePhone(data.phone);
   if (norm.length === 10) {
     const clash = await prisma.$queryRaw<unknown[]>`
@@ -123,6 +129,19 @@ export async function createCustomer(data: {
 
   const id = `cust-${randomBytes(4).toString("hex")}`;
   const createdAt = new Date();
+
+  /**
+   * Every new customer gets portal login credentials: use the admin-provided
+   * password when given, otherwise auto-generate a deterministic default
+   * (first 4 letters of name + first 4 digits of phone, e.g. "AMAR7004")
+   * sent via WhatsApp by the caller — see `customer-credentials-notify.service.ts`.
+   */
+  const useExplicitPassword = Boolean(data.password);
+  const plainPassword = useExplicitPassword
+    ? data.password!
+    : generateCustomerPassword(data.name, data.phone);
+  const passwordHash = await bcrypt.hash(plainPassword, 10);
+
   const row = await prisma.customer.create({
     data: {
       id,
@@ -140,9 +159,15 @@ export async function createCustomer(data: {
       isInactive: data.isInactive ?? false,
       emailVerified: data.emailVerified ?? false,
       createdAt,
+      passwordHash,
+      passwordCreatedBy: useExplicitPassword ? data.passwordCreatedBy ?? null : null,
+      passwordUpdatedAt: new Date(),
     },
   });
-  return toApiCustomer(row);
+  return {
+    customer: toApiCustomer(row),
+    ...(useExplicitPassword ? {} : { temporaryPassword: plainPassword }),
+  };
 }
 
 export async function updateCustomer(
@@ -162,6 +187,10 @@ export async function updateCustomer(
     isInactive: boolean;
     emailVerified: boolean;
     avatar: string | null;
+    /** Customer-portal login password reset by admin/staff. */
+    password: string;
+    /** Staff `User.id` setting the password, when tracked. */
+    passwordCreatedBy: string;
   }>
 ) {
   if (data.phone !== undefined) {
@@ -210,6 +239,11 @@ export async function updateCustomer(
       ...(data.isInactive !== undefined && { isInactive: data.isInactive }),
       ...(data.emailVerified !== undefined && { emailVerified: data.emailVerified }),
       ...(data.avatar !== undefined && { avatar: data.avatar ?? null }),
+      ...(data.password !== undefined && {
+        passwordHash: await bcrypt.hash(data.password, 10),
+        passwordCreatedBy: data.passwordCreatedBy ?? null,
+        passwordUpdatedAt: new Date(),
+      }),
     },
   });
   return toApiCustomer(row);

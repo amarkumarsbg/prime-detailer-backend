@@ -9,8 +9,10 @@ import {
   deleteCustomer,
   adjustWallet,
 } from "./customer.service.js";
+import { sendCustomerCredentialsWhatsApp } from "./customer-credentials-notify.service.js";
 import { resolveBranchScope } from "../../lib/data-scope.js";
 import { parsePagination } from "../../lib/pagination.js";
+import { customerPasswordSchema } from "../../lib/password-policy.js";
 
 const trimmed = (v: unknown) => (typeof v === "string" ? v.trim() : v);
 
@@ -28,6 +30,8 @@ const createSchema = z.object({
   isInactive: z.boolean().optional(),
   emailVerified: z.boolean().optional(),
   avatar: z.string().optional().nullable(),
+  /** Optional customer-portal login password (admin-set onboarding). */
+  password: customerPasswordSchema.optional(),
 });
 
 const updateSchema = createSchema.partial().omit({ referredBy: true });
@@ -107,8 +111,32 @@ export async function postCustomer(req: Request, res: Response, next: NextFuncti
       return;
     }
     const body = createSchema.parse(req.body);
-    const customer = await createCustomer({ ...body, organizationId: scope.organizationId });
-    res.status(201).json({ data: { customer }, error: null });
+    const result = await createCustomer({
+      ...body,
+      organizationId: scope.organizationId,
+      passwordCreatedBy: body.password ? req.auth?.id : undefined,
+    });
+
+    let credentialsSent = false;
+    if (result.temporaryPassword) {
+      const outcome = await sendCustomerCredentialsWhatsApp({
+        organizationId: scope.organizationId,
+        customerId: result.customer.id,
+        customerName: result.customer.name,
+        phone: result.customer.phone,
+        plainPassword: result.temporaryPassword,
+      });
+      credentialsSent = outcome.sent;
+    }
+
+    res.status(201).json({
+      data: {
+        customer: result.customer,
+        temporaryPassword: result.temporaryPassword,
+        credentialsSent,
+      },
+      error: null,
+    });
   } catch (e) {
     if (e instanceof Error && e.message === "Phone already in use") {
       res.status(409).json({ data: null, error: { message: e.message } });
@@ -157,12 +185,31 @@ export async function putCustomer(req: Request, res: Response, next: NextFunctio
       return;
     }
     const body = updateSchema.parse(req.body);
-    const customer = await updateCustomer(paramId(req), scope.organizationId, body);
+    const customer = await updateCustomer(paramId(req), scope.organizationId, {
+      ...body,
+      passwordCreatedBy: body.password ? req.auth?.id : undefined,
+    });
     if (!customer) {
       res.status(404).json({ data: null, error: { message: "Customer not found" } });
       return;
     }
-    res.json({ data: { customer }, error: null });
+
+    let credentialsSent = false;
+    if (body.password) {
+      const outcome = await sendCustomerCredentialsWhatsApp({
+        organizationId: scope.organizationId,
+        customerId: customer.id,
+        customerName: customer.name,
+        phone: customer.phone,
+        plainPassword: body.password,
+      });
+      credentialsSent = outcome.sent;
+    }
+
+    res.json({
+      data: body.password ? { customer, credentialsSent } : { customer },
+      error: null,
+    });
   } catch (e) {
     if (e instanceof Error && e.message === "Phone already in use") {
       res.status(409).json({ data: null, error: { message: e.message } });

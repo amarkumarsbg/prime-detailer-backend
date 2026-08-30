@@ -3,12 +3,18 @@ import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
 import type { UserRole } from "@prisma/client";
 
+/** Staff roles (Prisma `UserRole`) plus the customer-portal pseudo-role. */
+export type AppRole = UserRole | "CUSTOMER";
+
 export interface AuthUser {
   id: string;
   email: string;
-  role: UserRole;
+  role: AppRole;
+  /** Empty string for customer-portal tokens (customers aren't branch-scoped). */
   branchId: string;
   organizationId?: string;
+  /** Present only for customer-portal tokens (`role === "CUSTOMER"`). */
+  customerId?: string;
   name: string;
   permissions?: string[];
 }
@@ -31,19 +37,21 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   try {
     const decoded = jwt.verify(token, env.JWT_SECRET) as jwt.JwtPayload & {
       sub: string;
-      email: string;
-      role: UserRole;
-      branchId: string;
+      email?: string;
+      role: AppRole;
+      branchId?: string;
       organizationId?: string;
+      customerId?: string;
       name: string;
       permissions?: string[];
     };
     req.auth = {
       id: decoded.sub,
-      email: decoded.email,
+      email: decoded.email ?? "",
       role: decoded.role,
-      branchId: decoded.branchId,
+      branchId: decoded.branchId ?? "",
       organizationId: decoded.organizationId,
+      customerId: decoded.customerId,
       name: decoded.name,
       permissions: decoded.permissions || [],
     };
@@ -51,6 +59,15 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   } catch {
     res.status(401).json({ data: null, error: { message: "Invalid or expired token" } });
   }
+}
+
+/** Gate customer-portal routes: requires a valid `role: "CUSTOMER"` token with a customerId claim. */
+export function requireCustomerAuth(req: Request, res: Response, next: NextFunction): void {
+  if (!req.auth || req.auth.role !== "CUSTOMER" || !req.auth.customerId) {
+    res.status(401).json({ data: null, error: { message: "Unauthorized" } });
+    return;
+  }
+  next();
 }
 
 export function requirePermission(permission: string) {

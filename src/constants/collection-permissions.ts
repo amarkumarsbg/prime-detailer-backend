@@ -44,6 +44,7 @@ export const COLLECTION_PERMISSION_MAP: Record<string, string> = {
   staffRewardLedger: "STAFF_REWARDS",
   staffTargets: "STAFF_REWARDS",
   staffRewardSettings: "STAFF_REWARDS",
+  customerRewardSettings: "MEMBERSHIP",
 };
 
 /** Returns the permission key for a known collection, or null if unmapped/unknown. */
