@@ -12,7 +12,7 @@ import {
 import { sendCustomerCredentialsWhatsApp } from "./customer-credentials-notify.service.js";
 import { resolveBranchScope } from "../../lib/data-scope.js";
 import { parsePagination } from "../../lib/pagination.js";
-import { strongPasswordSchema } from "../../lib/password-policy.js";
+import { customerPasswordSchema } from "../../lib/password-policy.js";
 
 const trimmed = (v: unknown) => (typeof v === "string" ? v.trim() : v);
 
@@ -31,7 +31,7 @@ const createSchema = z.object({
   emailVerified: z.boolean().optional(),
   avatar: z.string().optional().nullable(),
   /** Optional customer-portal login password (admin-set onboarding). */
-  password: strongPasswordSchema.optional(),
+  password: customerPasswordSchema.optional(),
 });
 
 const updateSchema = createSchema.partial().omit({ referredBy: true });

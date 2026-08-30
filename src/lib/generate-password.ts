@@ -32,3 +32,23 @@ export function generateTemporaryPassword(): string {
   }
   return chars.join("");
 }
+
+/**
+ * Deterministic customer-portal default password: the customer's first name
+ * (uppercase) + first 4 digits of their phone number.
+ * e.g. "Sanchit Kumar" + "7004509790" -> "SANCHIT7004".
+ *
+ * Note: this is intentionally predictable (derivable from public-ish info like
+ * the customer's name and phone number). There is no forced password-change
+ * flow — customers may keep this default indefinitely — so treat it as a
+ * low-security default, not a temporary/onboarding-only password.
+ */
+export function generateCustomerPassword(name: string, phone: string): string {
+  const firstName = name.trim().split(/\s+/)[0] ?? "";
+  const namePart = (firstName.replace(/[^a-zA-Z]/g, "").toUpperCase() || "CUST").padEnd(4, "X");
+
+  const digits = phone.replace(/\D/g, "").slice(-10); // normalize like phone-match logic elsewhere
+  const phonePart = digits.slice(0, 4).padEnd(4, "0");
+
+  return `${namePart}${phonePart}`;
+}

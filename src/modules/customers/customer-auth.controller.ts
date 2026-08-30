@@ -2,7 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { authenticateCustomer, signCustomerAuthToken, setCustomerPassword } from "./customer-auth.service.js";
 import { getCustomerById } from "./customer.service.js";
-import { strongPasswordSchema } from "../../lib/password-policy.js";
+import { customerPasswordSchema } from "../../lib/password-policy.js";
 
 const loginSchema = z.object({
   phone: z.string().min(1),
@@ -11,7 +11,7 @@ const loginSchema = z.object({
 
 const setPasswordSchema = z.object({
   currentPassword: z.string().min(1),
-  newPassword: strongPasswordSchema,
+  newPassword: customerPasswordSchema,
 });
 
 /** POST /api/auth/customer/login */
@@ -58,8 +58,9 @@ export async function postCustomerLogout(_req: Request, res: Response) {
 
 /**
  * POST /api/auth/customer/set-password
- * Requires the customer's current password — covers both "first-time setup"
- * (currentPassword = the WhatsApp temp password) and a normal password change.
+ * Lets a logged-in customer change their password whenever they want (optional,
+ * not forced). Requires their current password to prevent a stolen/expired
+ * token from being used to silently take over the account.
  * Note: this endpoint requires an authenticated session (Bearer token). A true
  * unauthenticated "forgot password" flow (no active session) would need OTP/SMS
  * verification, which is not implemented yet.

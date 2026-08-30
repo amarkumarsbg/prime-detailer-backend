@@ -20,7 +20,6 @@ interface CustomerAuthRow {
   email: string;
   passwordHash: string | null;
   isInactive: boolean;
-  mustChangePassword: boolean;
 }
 
 /**
@@ -36,7 +35,7 @@ export async function authenticateCustomer(
   if (norm.length !== 10) return null;
 
   const rows = await prisma.$queryRaw<CustomerAuthRow[]>`
-    SELECT id, "organizationId", name, phone, email, "passwordHash", "isInactive", "mustChangePassword"
+    SELECT id, "organizationId", name, phone, email, "passwordHash", "isInactive"
     FROM "Customer"
     WHERE RIGHT(REGEXP_REPLACE(phone, '\\D', '', 'g'), 10) = ${norm}
     LIMIT 1
@@ -60,7 +59,6 @@ export function signCustomerAuthToken(customer: {
   organizationId: string;
   name: string;
   email: string;
-  mustChangePassword?: boolean;
 }): string {
   const expiresSeconds = 30 * 24 * 60 * 60; // 30 days
   const options: jwt.SignOptions = { expiresIn: expiresSeconds };
@@ -72,7 +70,6 @@ export function signCustomerAuthToken(customer: {
       organizationId: customer.organizationId,
       name: customer.name,
       email: customer.email,
-      mustChangePassword: customer.mustChangePassword === true,
     },
     env.JWT_SECRET,
     options
@@ -80,9 +77,9 @@ export function signCustomerAuthToken(customer: {
 }
 
 /**
- * Set a new portal password. Requires the customer's current password
- * (covers both "first-time setup" — currentPassword is the WhatsApp temp
- * password — and a regular password change while logged in).
+ * Optional, self-service password change while logged in (not forced — customers
+ * may keep their default/generated password indefinitely if they prefer).
+ * Requires the customer's current password to authorize the change.
  * Returns null when the customerId is unknown or currentPassword is wrong.
  */
 export async function setCustomerPassword(
@@ -102,7 +99,7 @@ export async function setCustomerPassword(
   const passwordHash = await bcrypt.hash(newPassword, 10);
   const updated = await prisma.customer.update({
     where: { id: customer.id },
-    data: { passwordHash, mustChangePassword: false, passwordUpdatedAt: new Date() },
+    data: { passwordHash, passwordUpdatedAt: new Date() },
   });
 
   return {
@@ -113,6 +110,5 @@ export async function setCustomerPassword(
     email: updated.email,
     passwordHash: updated.passwordHash,
     isInactive: updated.isInactive,
-    mustChangePassword: updated.mustChangePassword,
   };
 }

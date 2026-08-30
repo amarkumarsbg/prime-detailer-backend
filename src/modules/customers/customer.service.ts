@@ -4,7 +4,7 @@ import { prisma } from "../../lib/prisma.js";
 import { randomBytes } from "node:crypto";
 import { AppError } from "../../lib/app-error.js";
 import { REFERRAL_EXISTING_CUSTOMER_MESSAGE } from "../../lib/referral-eligibility.js";
-import { generateTemporaryPassword } from "../../lib/generate-password.js";
+import { generateCustomerPassword } from "../../lib/generate-password.js";
 
 async function resolveAdvocateReferralCode(
   organizationId: string,
@@ -132,11 +132,14 @@ export async function createCustomer(data: {
 
   /**
    * Every new customer gets portal login credentials: use the admin-provided
-   * password when given, otherwise auto-generate a temporary one (sent via
-   * WhatsApp by the caller — see `customer-credentials-notify.service.ts`).
+   * password when given, otherwise auto-generate a deterministic default
+   * (first 4 letters of name + first 4 digits of phone, e.g. "AMAR7004")
+   * sent via WhatsApp by the caller — see `customer-credentials-notify.service.ts`.
    */
   const useExplicitPassword = Boolean(data.password);
-  const plainPassword = useExplicitPassword ? data.password! : generateTemporaryPassword();
+  const plainPassword = useExplicitPassword
+    ? data.password!
+    : generateCustomerPassword(data.name, data.phone);
   const passwordHash = await bcrypt.hash(plainPassword, 10);
 
   const row = await prisma.customer.create({
@@ -157,7 +160,6 @@ export async function createCustomer(data: {
       emailVerified: data.emailVerified ?? false,
       createdAt,
       passwordHash,
-      mustChangePassword: !useExplicitPassword,
       passwordCreatedBy: useExplicitPassword ? data.passwordCreatedBy ?? null : null,
       passwordUpdatedAt: new Date(),
     },
@@ -239,7 +241,6 @@ export async function updateCustomer(
       ...(data.avatar !== undefined && { avatar: data.avatar ?? null }),
       ...(data.password !== undefined && {
         passwordHash: await bcrypt.hash(data.password, 10),
-        mustChangePassword: false,
         passwordCreatedBy: data.passwordCreatedBy ?? null,
         passwordUpdatedAt: new Date(),
       }),
