@@ -106,6 +106,7 @@ model OrganizationSubscription {
    */
   limits              Json
   maxBranchesOverride Int?
+  maxUsersOverride    Int?
   contactUsUrl        String?
   /**
    * E.164 preferred, e.g. +919876543210 — used for mobile tel: dial

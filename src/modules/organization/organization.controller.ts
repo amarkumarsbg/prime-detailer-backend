@@ -190,6 +190,7 @@ const patchSchema = z.object({
     })
     .optional(),
   maxBranchesOverride: z.number().int().nonnegative().nullable().optional(),
+  maxUsersOverride: z.number().int().nonnegative().nullable().optional(),
   contactUsUrl: z.string().nullable().optional(),
   contactPhone: z.string().nullable().optional(),
   upgradeUrl: z.string().nullable().optional(),

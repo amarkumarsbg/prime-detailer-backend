@@ -11,6 +11,7 @@ import {
   PLAN_CATALOG,
   canCreateWithLimit,
   effectiveMaxBranches,
+  effectiveMaxUsers,
   parsePlanLimits,
   type PlanLimits,
 } from "../../lib/plan-catalog.js";
@@ -40,6 +41,8 @@ export type EntitlementPayload = {
     limits: PlanLimits;
     maxBranchesOverride: number | null;
     effectiveMaxBranches: number | null;
+    maxUsersOverride: number | null;
+    effectiveMaxUsers: number | null;
     contactUsUrl: string | null;
     contactPhone: string | null;
     upgradeUrl: string | null;
@@ -143,6 +146,7 @@ export function toEntitlement(
 ): EntitlementPayload {
   const limits = normalizedLimitsForSubscription(sub);
   const max = effectiveMaxBranches(limits, sub.maxBranchesOverride);
+  const maxUsers = effectiveMaxUsers(limits, sub.maxUsersOverride);
   const statusOk = sub.status === "ACTIVE" || sub.status === "PAST_DUE";
   const canCreate = statusOk && canCreateWithLimit(branchesUsed, max);
   const expiresAt = resolveExpiresAt(sub);
@@ -157,6 +161,8 @@ export function toEntitlement(
       limits,
       maxBranchesOverride: sub.maxBranchesOverride,
       effectiveMaxBranches: max,
+      maxUsersOverride: sub.maxUsersOverride,
+      effectiveMaxUsers: maxUsers,
       contactUsUrl: sub.contactUsUrl,
       contactPhone: sub.contactPhone,
       upgradeUrl: sub.upgradeUrl,
@@ -238,7 +244,7 @@ export async function assertCanCreateUser(organizationId: string): Promise<Entit
   if (!entitlement) {
     throw new AppHttpError(403, "Organization subscription not found.", "SUBSCRIPTION_MISSING");
   }
-  const maxUsers = entitlement.subscription.limits.maxStaff;
+  const maxUsers = entitlement.subscription.effectiveMaxUsers;
   if (maxUsers === null || maxUsers === undefined) {
     return entitlement;
   }
@@ -284,6 +290,7 @@ export type PatchSubscriptionInput = {
   status?: SubscriptionStatus;
   limits?: PlanLimits;
   maxBranchesOverride?: number | null;
+  maxUsersOverride?: number | null;
   contactUsUrl?: string | null;
   contactPhone?: string | null;
   upgradeUrl?: string | null;
@@ -324,6 +331,12 @@ export async function patchOrganizationSubscription(
   const oldMax = effectiveMaxBranches(parsePlanLimits(sub.limits), sub.maxBranchesOverride);
   const newMax = effectiveMaxBranches(nextLimits, nextOverride);
 
+  const nextUsersOverride =
+    input.maxUsersOverride !== undefined ? input.maxUsersOverride : sub.maxUsersOverride;
+
+  const oldMaxUsers = effectiveMaxUsers(parsePlanLimits(sub.limits), sub.maxUsersOverride);
+  const newMaxUsers = effectiveMaxUsers(nextLimits, nextUsersOverride);
+
   const nextExpires =
     input.expiresAt !== undefined ? input.expiresAt : resolveExpiresAt(sub);
   const nextTerm =
@@ -345,6 +358,7 @@ export async function patchOrganizationSubscription(
       status: input.status ?? sub.status,
       limits: asLimitsJson(nextLimits),
       maxBranchesOverride: nextOverride,
+      maxUsersOverride: nextUsersOverride,
       contactUsUrl: input.contactUsUrl !== undefined ? input.contactUsUrl : sub.contactUsUrl,
       contactPhone: input.contactPhone !== undefined ? input.contactPhone : sub.contactPhone,
       upgradeUrl: input.upgradeUrl !== undefined ? input.upgradeUrl : sub.upgradeUrl,
@@ -380,6 +394,9 @@ export async function patchOrganizationSubscription(
     oldMaxBranches: oldMax,
     newMaxBranches: newMax,
     maxBranchesOverride: nextOverride,
+    oldMaxUsers,
+    newMaxUsers,
+    maxUsersOverride: nextUsersOverride,
     planCode: nextPlanCode,
     at: new Date().toISOString(),
   });

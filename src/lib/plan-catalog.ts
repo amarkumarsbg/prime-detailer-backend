@@ -78,6 +78,17 @@ export function effectiveMaxBranches(
   return limits.maxBranches;
 }
 
+/** Same override semantics as `effectiveMaxBranches`, but for the user/staff seat limit. */
+export function effectiveMaxUsers(
+  limits: PlanLimits,
+  maxUsersOverride: number | null | undefined
+): number | null {
+  if (maxUsersOverride !== null && maxUsersOverride !== undefined) {
+    return Math.max(0, Math.floor(maxUsersOverride));
+  }
+  return limits.maxStaff ?? null;
+}
+
 export function isUnlimited(max: number | null): boolean {
   return max === null;
 }
