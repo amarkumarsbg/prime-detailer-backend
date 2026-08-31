@@ -89,26 +89,65 @@ async function readStaff(organizationId: string): Promise<EligibleStaffCandidate
 // Settings helpers
 // ---------------------------------------------------------------------------
 
-function extractTiers(settings: Record<string, unknown>, periodType: PeriodType): CompanyTargetTier[] {
-  const isValidTier = (t: unknown): t is CompanyTargetTier =>
-    typeof t === "object" &&
-    t !== null &&
-    typeof (t as Record<string, unknown>).targetAmount === "number" &&
-    typeof (t as Record<string, unknown>).rewardPercent === "number" &&
-    typeof (t as Record<string, unknown>).role === "string" &&
-    (t as Record<string, unknown>).role !== "";
+/**
+ * Expand one raw stored tier into one or more independent per-role
+ * `CompanyTargetTier` entries:
+ *  - "Distribute role wise" shape: `roleRewards: [{ role, rewardPercent }, ...]`
+ *    → one entry per role reward, all sharing the same targetAmount.
+ *  - Legacy single-role shape: `{ targetAmount, role, rewardPercent }` → one entry.
+ * Entries missing a valid role/rewardPercent/targetAmount are skipped.
+ */
+function expandRawTier(raw: unknown): CompanyTargetTier[] {
+  if (typeof raw !== "object" || raw === null) return [];
+  const t = raw as Record<string, unknown>;
+  if (typeof t.targetAmount !== "number") return [];
 
+  // New shape: roleRewards array (set by the per-tier 4-row role UI)
+  const roleRewardsArray = Array.isArray(t.roleRewards) ? t.roleRewards : null;
+  // Also support legacy roleShares if stored as array
+  const roleSharesArray = Array.isArray(t.roleShares) ? t.roleShares : null;
+  const multiRoleArray = roleRewardsArray ?? roleSharesArray;
+
+  if (multiRoleArray) {
+    return multiRoleArray
+      .filter(
+        (s): s is { role: string; rewardPercent: number } => {
+          if (typeof s !== "object" || s === null) return false;
+          const entry = s as Record<string, unknown>;
+          return (
+            typeof entry.role === "string" &&
+            entry.role !== "" &&
+            typeof entry.rewardPercent === "number" &&
+            (entry.rewardPercent as number) > 0
+          );
+        }
+      )
+      .map((s: { role: string; rewardPercent: number }) => ({
+        targetAmount: t.targetAmount as number,
+        role: s.role,
+        rewardPercent: s.rewardPercent,
+      }));
+  }
+
+  if (typeof t.role === "string" && t.role !== "" && typeof t.rewardPercent === "number") {
+    return [{ targetAmount: t.targetAmount, role: t.role, rewardPercent: t.rewardPercent }];
+  }
+
+  return [];
+}
+
+function extractTiers(settings: Record<string, unknown>, periodType: PeriodType): CompanyTargetTier[] {
   // Prefer frequency-specific tiers if present
   const freqTiers = settings.companyTargetFrequencyTiers;
   if (freqTiers && typeof freqTiers === "object" && !Array.isArray(freqTiers)) {
     const typed = freqTiers as Record<string, unknown>;
     if (Array.isArray(typed[periodType])) {
-      return (typed[periodType] as unknown[]).filter(isValidTier);
+      return (typed[periodType] as unknown[]).flatMap(expandRawTier);
     }
   }
   // Fall back to generic companyTargetTiers
   if (Array.isArray(settings.companyTargetTiers)) {
-    return (settings.companyTargetTiers as unknown[]).filter(isValidTier);
+    return (settings.companyTargetTiers as unknown[]).flatMap(expandRawTier);
   }
   return [];
 }

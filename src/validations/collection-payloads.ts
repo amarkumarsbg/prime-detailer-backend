@@ -118,14 +118,22 @@ export const staffRewardSettingsPayloadSchema = z
       .optional()
       .transform((v) => (v ? "INVOICES" : v)), // normalize all legacy values to INVOICES
     companyTargetPeriod: z.enum(["MONTHLY", "QUARTERLY", "HALF_YEARLY", "YEARLY"]).optional(),
+    /**
+     * `rewardPercent` is optional at the tier level: it's used for the legacy
+     * single-role-per-tier shape, but is omitted when the tier instead carries
+     * a `roleRewards` array (one { role, rewardPercent } pair per role — the
+     * "Distribute role wise" model; legacy `roleShares` is also still read).
+     * `.passthrough()` preserves `role`, `roleRewards`/`roleShares`, and any
+     * other extra fields the frontend sends untouched.
+     */
     companyTargetTiers: z
       .array(
         z
           .object({
             targetAmount: z.number(),
-            rewardPercent: z.number(),
+            rewardPercent: z.number().optional(),
           })
-          .passthrough() // preserve extra per-tier fields (e.g. `role`) sent by the frontend
+          .passthrough()
       )
       .optional(),
     companyTargetFrequencyTiers: z
@@ -135,9 +143,9 @@ export const staffRewardSettingsPayloadSchema = z
           z
             .object({
               targetAmount: z.number(),
-              rewardPercent: z.number(),
+              rewardPercent: z.number().optional(),
             })
-            .passthrough() // preserve extra per-tier fields (e.g. `role`) sent by the frontend
+            .passthrough()
         )
       )
       .optional(),
