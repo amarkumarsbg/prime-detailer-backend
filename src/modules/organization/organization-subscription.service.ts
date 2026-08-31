@@ -89,6 +89,8 @@ export type SubscriptionBillRow = {
   baseAmount: number;
   extraBranchCost: number;
   extraUserCost: number;
+  extraBranches: number;
+  extraUsers: number;
   onboardingFee: number;
   referralDiscount: number;
   gstPercent: number;
@@ -719,6 +721,8 @@ function mapBill(b: {
   baseAmount: number | null;
   extraBranchCost: number | null;
   extraUserCost: number | null;
+  extraBranches: number | null;
+  extraUsers: number | null;
   onboardingFee: number | null;
   referralDiscount: number | null;
   gstPercent: number | null;
@@ -743,6 +747,8 @@ function mapBill(b: {
     baseAmount: b.baseAmount ?? 0,
     extraBranchCost: b.extraBranchCost ?? 0,
     extraUserCost: b.extraUserCost ?? 0,
+    extraBranches: b.extraBranches ?? 0,
+    extraUsers: b.extraUsers ?? 0,
     onboardingFee: b.onboardingFee ?? 0,
     referralDiscount: b.referralDiscount ?? 0,
     gstPercent: b.gstPercent ?? 0,
@@ -842,17 +848,19 @@ export async function verifySubscriptionPayment(
   const billNumber = await nextBillNumber(orgId);
   const termLabel = termLabelFromMonths(termMonths);
   const currentLimits = normalizedLimitsForSubscription(sub);
-  const nextLimits: PlanLimits = {
-    ...currentLimits,
-    maxStaff:
-      pricing?.finalAllowedUsers === null
-        ? null
-        : pricing?.finalAllowedUsers ?? currentLimits.maxStaff,
-  };
   const nextBranchOverride =
     pricing?.finalAllowedBranches === null
       ? null
       : pricing?.finalAllowedBranches ?? sub.maxBranchesOverride;
+  /**
+   * Same "absolute overwrite" semantics as `maxBranchesOverride`: each renewal's
+   * effective user cap is the base plan allowance + that renewal's extraUsers,
+   * not additive across renewals — avoids double-counting after multiple renewals.
+   */
+  const nextUsersOverride =
+    pricing?.finalAllowedUsers === null
+      ? null
+      : pricing?.finalAllowedUsers ?? sub.maxUsersOverride;
   const finalAmount = pricing?.finalAmount ?? input.amount ?? payment.amount ?? 0;
 
   await prisma.$transaction(async (tx) => {
@@ -874,8 +882,9 @@ export async function verifySubscriptionPayment(
         paymentStatus: "PAID",
         lastPaymentTxnId: txnRef,
         status: "ACTIVE",
-        limits: asLimitsJson(nextLimits),
+        limits: asLimitsJson(currentLimits),
         maxBranchesOverride: nextBranchOverride,
+        maxUsersOverride: nextUsersOverride,
         startsAt: sub.startsAt ?? periodStart,
         expiresAt: periodEnd,
         currentPeriodEnd: periodEnd,
@@ -897,6 +906,8 @@ export async function verifySubscriptionPayment(
         baseAmount: pricing?.baseAmount ?? finalAmount,
         extraBranchCost: pricing?.extraBranchCost ?? 0,
         extraUserCost: pricing?.extraUserCost ?? 0,
+        extraBranches: pricing?.extraBranches ?? 0,
+        extraUsers: pricing?.extraUsers ?? 0,
         onboardingFee: pricing?.onboardingFee ?? 0,
         referralDiscount: pricing?.referralDiscount ?? 0,
         gstPercent: pricing?.gstPercent ?? 0,
@@ -936,7 +947,16 @@ export async function verifySubscriptionPayment(
 }
 
 /**
- * Admin shortcut: mark paid without an existing payment row (creates payment + bill + extend).
+ * Admin shortcut: mark a subscription paid.
+ *
+ * Reuses the most recent PENDING renewal payment (created by
+ * `requestSubscriptionRenewal`) when one exists, so its pricing breakdown —
+ * extraBranches/extraUsers/termMonths — carries through to verification and
+ * correctly raises `maxBranchesOverride`/`maxUsersOverride`. Previously this
+ * always created a brand-new context-less payment, which silently discarded
+ * any extras purchased in the renewal request (bug).
+ * Falls back to creating a fresh payment when there's no pending renewal
+ * (e.g. an ad-hoc admin "mark paid" without a prior renewal request).
  */
 export async function adminMarkSubscriptionPaid(
   orgId: string,
@@ -956,17 +976,26 @@ export async function adminMarkSubscriptionPaid(
     throw new AppHttpError(404, "Organization not found", "ORG_NOT_FOUND");
   }
 
-  const payment = await prisma.subscriptionPayment.create({
-    data: {
-      organizationId: orgId,
-      subscriptionId: org.subscription.id,
-      status: "PROCESSING",
-      method: "ADMIN",
-      notes: opts?.notes ?? "Marked paid by platform admin",
-      amount: opts?.amount ?? null,
-      recordedBy: actorLabel,
-    },
+  const pendingPayment = await prisma.subscriptionPayment.findFirst({
+    where: { organizationId: orgId, status: "PENDING" },
+    orderBy: { createdAt: "desc" },
   });
+
+  const paymentId = pendingPayment
+    ? pendingPayment.id
+    : (
+        await prisma.subscriptionPayment.create({
+          data: {
+            organizationId: orgId,
+            subscriptionId: org.subscription.id,
+            status: "PROCESSING",
+            method: "ADMIN",
+            notes: opts?.notes ?? "Marked paid by platform admin",
+            amount: opts?.amount ?? null,
+            recordedBy: actorLabel,
+          },
+        })
+      ).id;
 
   if (opts?.termMonths) {
     await prisma.organizationSubscription.update({
@@ -978,7 +1007,7 @@ export async function adminMarkSubscriptionPaid(
   return verifySubscriptionPayment(
     orgId,
     {
-      paymentId: payment.id,
+      paymentId,
       outcome: "PAID",
       txnReference: opts?.txnReference,
       amount: opts?.amount,

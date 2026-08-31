@@ -176,6 +176,10 @@ model SubscriptionBill {
   baseAmount     Float?
   extraBranchCost Float?
   extraUserCost  Float?
+  /** Extra branches purchased with this bill (re-read at verification to re-derive maxBranchesOverride). */
+  extraBranches  Int?
+  /** Extra users purchased with this bill (re-read at verification to re-derive maxUsersOverride). */
+  extraUsers     Int?
   onboardingFee  Float?
   referralDiscount Float?
   gstPercent     Float?
