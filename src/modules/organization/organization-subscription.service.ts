@@ -188,12 +188,19 @@ export async function countBranchesForOrg(organizationId: string): Promise<numbe
   return prisma.branch.count({ where: { organizationId } });
 }
 
+/**
+ * Roles excluded from the billable "user seat" count: PLATFORM_OWNER (not a
+ * tenant seat) and MECHANIC (shop-floor staff, not billed against the plan's
+ * user/staff limit).
+ */
+const NON_BILLABLE_USER_ROLES = ["PLATFORM_OWNER", "MECHANIC"] as const;
+
 export async function countActiveUsersForOrg(organizationId: string): Promise<number> {
   return prisma.user.count({
     where: {
       organizationId,
       isActive: true,
-      role: { not: "PLATFORM_OWNER" },
+      role: { notIn: [...NON_BILLABLE_USER_ROLES] },
     },
   });
 }

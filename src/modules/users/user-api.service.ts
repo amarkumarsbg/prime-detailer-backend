@@ -137,7 +137,8 @@ export async function createUserApi(input: {
   if (!branch) {
     throw AppError.validation("Selected branch was not found.");
   }
-  if (input.isActive ?? true) {
+  // MECHANIC accounts don't count toward the billable user-seat limit — skip the gate entirely.
+  if ((input.isActive ?? true) && input.role !== "MECHANIC") {
     await assertCanCreateUser(branch.organizationId);
   }
 
@@ -238,7 +239,9 @@ export async function updateUserApi(
 
     const nextActive = patch.isActive ?? current.isActive;
     const wasInactive = !current.isActive;
-    if (nextActive && wasInactive) {
+    const effectiveRole = patch.role ?? current.role;
+    // MECHANIC accounts don't count toward the billable user-seat limit — skip the gate entirely.
+    if (nextActive && wasInactive && effectiveRole !== "MECHANIC") {
       const nextOrgId =
         typeof data.organizationId === "string" && data.organizationId.trim()
           ? data.organizationId
