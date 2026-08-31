@@ -129,7 +129,7 @@ export const staffRewardSettingsPayloadSchema = z
       )
       .optional(),
     companyTargetFrequencyTiers: z
-      .record(
+      .partialRecord(
         z.enum(["MONTHLY", "QUARTERLY", "HALF_YEARLY", "YEARLY"]),
         z.array(
           z
