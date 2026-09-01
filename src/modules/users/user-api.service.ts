@@ -5,6 +5,8 @@ import { AppError } from "../../lib/app-error.js";
 import { toStaffDirectoryEntry } from "../../lib/data-scope.js";
 import { assertCanCreateUser } from "../organization/organization-subscription.service.js";
 import { generateTemporaryPassword } from "../../lib/generate-password.js";
+import type { StaffAccessLevel } from "../../lib/staff-access.js";
+import { resolvePermissionsOnCreate } from "../../lib/staff-role-defaults.js";
 
 export { generateTemporaryPassword };
 
@@ -128,6 +130,8 @@ export async function createUserApi(input: {
   /** Creator `User.id` when provisioned by an authenticated admin. */
   createdById?: string | null;
   permissions?: string[];
+  /** Used when permissions is omitted or [] — mirrors frontend Add User access radios. */
+  accessLevel?: StaffAccessLevel;
 }): Promise<{ user: ReturnType<typeof toApiUser>; temporaryPassword?: string }> {
   if (input.role === "PLATFORM_OWNER") {
     throw AppError.validation("Cannot create PLATFORM_OWNER accounts via studio user management.");
@@ -174,7 +178,7 @@ export async function createUserApi(input: {
     department: nullIfEmpty(input.department) ?? null,
     joiningDate: nullIfEmpty(input.joiningDate) ?? null,
     notes: nullIfEmpty(input.notes) ?? null,
-    permissions: input.permissions ?? [],
+    permissions: resolvePermissionsOnCreate(input.role, input.permissions, input.accessLevel),
   };
 
   const code = data.employeeCode as string | null;

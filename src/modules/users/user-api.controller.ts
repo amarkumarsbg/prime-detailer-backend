@@ -21,6 +21,7 @@ import {
 } from "./user-api.service.js";
 import { prisma } from "../../lib/prisma.js";
 import { resolveBranchScope } from "../../lib/data-scope.js";
+import { canManageUserPermissions } from "../../lib/staff-permissions-policy.js";
 
 function paramId(req: Request): string {
   const raw = req.params.id;
@@ -66,6 +67,7 @@ const createUserBodySchema = z.object({
   joiningDate: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
   permissions: z.array(z.string()).optional(),
+  accessLevel: z.enum(["withEditAccess", "withoutEditAccess"]).optional(),
 });
 
 const createUserSchema = createUserBodySchema.superRefine((data, ctx) => {
@@ -153,7 +155,6 @@ export async function postUser(req: Request, res: Response, next: NextFunction) 
       forbidden(res, "Organization not found on user");
       return;
     }
-    // Set default permissions to all keys if not specified
     const created = await createUserApi({
       ...body,
       role: body.role as UserRole,
@@ -247,8 +248,8 @@ export async function putUser(req: Request, res: Response, next: NextFunction) {
       }
     }
 
-    if (body.permissions !== undefined && req.auth.role !== "SUPER_ADMIN") {
-      forbidden(res, "Only Super Admin can manage user permissions.");
+    if (body.permissions !== undefined && !canManageUserPermissions(req.auth)) {
+      forbidden(res, "You do not have permission to manage user access.");
       return;
     }
 
