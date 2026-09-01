@@ -60,10 +60,11 @@ export const GRANULAR_PERMISSION_MODULES = [
   "INVENTORY",
   "STAFF",
   "ATTENDANCE",
+  "REFERRALS",
 ] as const;
 
 export type GranularModuleKey = (typeof GRANULAR_PERMISSION_MODULES)[number];
-export type GranularAction = "CREATE" | "VIEW" | "EDIT";
+export type GranularAction = "CREATE" | "VIEW" | "EDIT" | "DELETE";
 
 /**
  * Modules that stay as simple on/off permissions in the UI.

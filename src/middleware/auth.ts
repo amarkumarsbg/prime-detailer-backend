@@ -119,6 +119,8 @@ function actionFromHttpMethod(method: string): GranularAction | null {
     case "PUT":
     case "PATCH":
       return "EDIT";
+    case "DELETE":
+      return "DELETE";
     default:
       return null;
   }
@@ -128,8 +130,7 @@ function actionFromHttpMethod(method: string): GranularAction | null {
  * Method-aware permission resolver:
  * - SUPER_ADMIN / ADMIN bypass all checks.
  * - Base permission key remains backward-compatible and implies all actions.
- * - Granular modules may use *_CREATE / *_VIEW / *_EDIT.
- * - DELETE on granular modules is admin-only (no staff permission grants delete).
+ * - Granular modules may use *_CREATE / *_VIEW / *_EDIT / *_DELETE.
  */
 export function hasPermissionForMethod(auth: AuthUser, permission: string, method: string): boolean {
   if (auth.role === "SUPER_ADMIN" || auth.role === "ADMIN") return true;
@@ -138,7 +139,6 @@ export function hasPermissionForMethod(auth: AuthUser, permission: string, metho
   if (held.includes(permission)) return true;
 
   if (!isGranularPermissionModule(permission)) return false;
-  if (method.toUpperCase() === "DELETE") return false;
 
   const action = actionFromHttpMethod(method);
   if (!action) return false;
