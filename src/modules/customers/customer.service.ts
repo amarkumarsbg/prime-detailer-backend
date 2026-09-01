@@ -42,6 +42,7 @@ export function toApiCustomer(row: CustomerRow) {
     rewardPoints: row.rewardPoints,
     walletBalance: row.walletBalance,
     lastVisitDate: row.lastVisitDate ?? undefined,
+    notes: row.notes ?? undefined,
     isInactive: row.isInactive || undefined,
     emailVerified: row.emailVerified || undefined,
     avatar: row.avatar ?? undefined,
@@ -102,14 +103,15 @@ export async function createCustomer(data: {
   email: string;
   address: string;
   referralCode: string;
-  referredBy?: string;
+  referredBy?: string | null;
   totalVisits?: number;
   rewardPoints?: number;
   walletBalance?: number;
   lastVisitDate?: string;
+  notes?: string;
   isInactive?: boolean;
   emailVerified?: boolean;
-  /** Customer-portal login password, set by admin/staff onboarding this customer. */
+  /** Explicit password bypasses the fallback generation (used when creating a customer from the SaaS Admin panel or Studio with an explicit initial password). */
   password?: string;
   /** Staff `User.id` setting the password, when tracked. */
   passwordCreatedBy?: string;
@@ -156,6 +158,7 @@ export async function createCustomer(data: {
       rewardPoints: data.rewardPoints ?? 0,
       walletBalance: data.walletBalance ?? 0,
       lastVisitDate: data.lastVisitDate?.trim() || null,
+      notes: data.notes?.trim() || null,
       isInactive: data.isInactive ?? false,
       emailVerified: data.emailVerified ?? false,
       createdAt,
@@ -184,6 +187,7 @@ export async function updateCustomer(
     rewardPoints: number;
     walletBalance: number;
     lastVisitDate: string | null;
+    notes: string | null;
     isInactive: boolean;
     emailVerified: boolean;
     avatar: string | null;
@@ -236,6 +240,7 @@ export async function updateCustomer(
       ...(data.rewardPoints !== undefined && { rewardPoints: data.rewardPoints }),
       ...(data.walletBalance !== undefined && { walletBalance: data.walletBalance }),
       ...(data.lastVisitDate !== undefined && { lastVisitDate: data.lastVisitDate }),
+      ...(data.notes !== undefined && { notes: data.notes }),
       ...(data.isInactive !== undefined && { isInactive: data.isInactive }),
       ...(data.emailVerified !== undefined && { emailVerified: data.emailVerified }),
       ...(data.avatar !== undefined && { avatar: data.avatar ?? null }),

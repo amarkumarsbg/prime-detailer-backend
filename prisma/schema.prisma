@@ -41,30 +41,30 @@ enum SubscriptionPaymentStatus {
 }
 
 model Organization {
-  id                String                    @id
-  name              String
-  slug              String?                   @unique
+  id                   String                    @id
+  name                 String
+  slug                 String?                   @unique
   /**
    * SaaS account on/off — inactive orgs cannot use the studio app
    */
-  isActive          Boolean                   @default(true)
-  activatedAt       DateTime?
-  deactivatedAt     DateTime?
+  isActive             Boolean                   @default(true)
+  activatedAt          DateTime?
+  deactivatedAt        DateTime?
   /**
    * PLATFORM_OWNER only — never exposed to studio APIs
    */
-  internalNotes     String?
-  createdAt         DateTime                  @default(now())
-  updatedAt         DateTime                  @updatedAt
-  subscription      OrganizationSubscription?
-  branches          Branch[]
-  users             User[]
-  customers         Customer[]
-  vehicles          Vehicle[]
-  appointments      Appointment[]
-  parties           Party[]
-  appJsonRows       AppJsonRow[]
-  platformAuditLogs PlatformAuditLog[]
+  internalNotes        String?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  subscription         OrganizationSubscription?
+  branches             Branch[]
+  users                User[]
+  customers            Customer[]
+  vehicles             Vehicle[]
+  appointments         Appointment[]
+  parties              Party[]
+  appJsonRows          AppJsonRow[]
+  platformAuditLogs    PlatformAuditLog[]
   subscriptionPayments SubscriptionPayment[]
   subscriptionBills    SubscriptionBill[]
 }
@@ -82,7 +82,9 @@ model PlatformAuditLog {
   @@index([organizationId, createdAt])
 }
 
-/** Platform-managed referral codes for subscription discounts. */
+/**
+ * Platform-managed referral codes for subscription discounts.
+ */
 model PlatformReferralCode {
   id             String   @id @default(cuid())
   code           String   @unique
@@ -157,37 +159,41 @@ model SubscriptionPayment {
 }
 
 model SubscriptionBill {
-  id             String                   @id @default(cuid())
-  organizationId String
-  organization   Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  subscriptionId String
-  subscription   OrganizationSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
-  paymentId      String?                  @unique
-  payment        SubscriptionPayment?     @relation(fields: [paymentId], references: [id], onDelete: SetNull)
-  billNumber     String
-  planName       String
-  termMonths     Int
+  id               String                   @id @default(cuid())
+  organizationId   String
+  organization     Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscriptionId   String
+  subscription     OrganizationSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  paymentId        String?                  @unique
+  payment          SubscriptionPayment?     @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  billNumber       String
+  planName         String
+  termMonths       Int
   /**
    * Human label e.g. "1 year", "2 years", "3 years"
    */
-  termLabel      String
-  periodStart    DateTime
-  periodEnd      DateTime
-  baseAmount     Float?
-  extraBranchCost Float?
-  extraUserCost  Float?
-  /** Extra branches purchased with this bill (re-read at verification to re-derive maxBranchesOverride). */
-  extraBranches  Int?
-  /** Extra users purchased with this bill (re-read at verification to re-derive maxUsersOverride). */
-  extraUsers     Int?
-  onboardingFee  Float?
+  termLabel        String
+  periodStart      DateTime
+  periodEnd        DateTime
+  baseAmount       Float?
+  extraBranchCost  Float?
+  extraUserCost    Float?
+  /**
+   * Extra branches purchased with this bill (re-read at verification to re-derive maxBranchesOverride).
+   */
+  extraBranches    Int?
+  /**
+   * Extra users purchased with this bill (re-read at verification to re-derive maxUsersOverride).
+   */
+  extraUsers       Int?
+  onboardingFee    Float?
   referralDiscount Float?
-  gstPercent     Float?
-  gstAmount      Float?
-  totalAmount    Float?
-  amount         Float?
-  currency       String                   @default("INR")
-  createdAt      DateTime                 @default(now())
+  gstPercent       Float?
+  gstAmount        Float?
+  totalAmount      Float?
+  amount           Float?
+  currency         String                   @default("INR")
+  createdAt        DateTime                 @default(now())
 
   @@unique([organizationId, billNumber])
   @@index([organizationId, createdAt])
@@ -246,10 +252,14 @@ model User {
   email                  String       @unique
   phone                  String
   employeeCode           String?      @unique
-  /** Job title (distinct from UserRole). */
+  /**
+   * Job title (distinct from UserRole).
+   */
   designation            String?
   department             String?
-  /** Employment start date (yyyy-MM-dd). Separate from birthday and anniversary. */
+  /**
+   * Employment start date (yyyy-MM-dd). Separate from birthday and anniversary.
+   */
   joiningDate            String?
   role                   UserRole
   branchId               String
@@ -266,7 +276,9 @@ model User {
   totalIncentiveEarned   Int?
   birthday               String?
   anniversary            String?
-  /** Free-text HR notes (not used for auth). */
+  /**
+   * Free-text HR notes (not used for auth).
+   */
   notes                  String?
   passwordHash           String
   permissions            String[]     @default([])
@@ -308,6 +320,7 @@ model Customer {
   rewardPoints   Int          @default(0)
   walletBalance  Float        @default(0)
   lastVisitDate  String?
+  notes          String?
   isInactive     Boolean      @default(false)
   emailVerified  Boolean      @default(false)
   avatar         String?
@@ -316,15 +329,25 @@ model Customer {
   organization   Organization @relation(fields: [organizationId], references: [id])
   vehicles       Vehicle[]
 
-  /** Customer portal login (set by admin/staff; nullable until first password is issued). */
+  /**
+   * Customer portal login (set by admin/staff; nullable until first password is issued).
+   */
   passwordHash       String?
-  /** When true, client should force a password change before using the portal. */
+  /**
+   * When true, client should force a password change before using the portal.
+   */
   mustChangePassword Boolean   @default(true)
-  /** Staff `User.id` who last set the customer's portal password, when tracked. */
+  /**
+   * Staff `User.id` who last set the customer's portal password, when tracked.
+   */
   passwordCreatedBy  String?
-  /** Last time the portal login password hash was replaced. */
+  /**
+   * Last time the portal login password hash was replaced.
+   */
   passwordUpdatedAt  DateTime?
-  /** Set on successful customer portal login. */
+  /**
+   * Set on successful customer portal login.
+   */
   lastLoginAt        DateTime?
 
   @@index([organizationId])
@@ -332,27 +355,27 @@ model Customer {
 }
 
 model Vehicle {
-  id                 String         @id
-  customerId         String
-  customer           Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  customerName       String
-  registrationNumber String
-  make               String
-  model              String
-  segment            VehicleSegment
-  variant            String?
-  fuelType           FuelType
-  color              String
-  year               Int
-  notes              String?
-  odometer           Int?
-  insuranceProvider  String?
+  id                    String         @id
+  customerId            String
+  customer              Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerName          String
+  registrationNumber    String
+  make                  String
+  model                 String
+  segment               VehicleSegment
+  variant               String?
+  fuelType              FuelType
+  color                 String
+  year                  Int
+  notes                 String?
+  odometer              Int?
+  insuranceProvider     String?
   insurancePolicyNumber String?
-  insuranceDueDate   String?
-  vinNumber          String?
-  previousOwners     Json?
-  organizationId     String
-  organization       Organization   @relation(fields: [organizationId], references: [id])
+  insuranceDueDate      String?
+  vinNumber             String?
+  previousOwners        Json?
+  organizationId        String
+  organization          Organization   @relation(fields: [organizationId], references: [id])
 
   @@index([organizationId])
   @@index([customerId])
