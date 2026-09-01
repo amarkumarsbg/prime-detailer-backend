@@ -17,6 +17,7 @@ import {
   listStaffDirectoryApi,
   createUserApi,
   updateUserApi,
+  resetUserPasswordApi,
 } from "./user-api.service.js";
 import { prisma } from "../../lib/prisma.js";
 import { resolveBranchScope } from "../../lib/data-scope.js";
@@ -75,6 +76,16 @@ const createUserSchema = createUserBodySchema.superRefine((data, ctx) => {
 });
 
 const updateUserSchema = createUserBodySchema.omit({ id: true, password: true }).partial();
+
+const resetUserPasswordSchema = z
+  .object({
+    password: z.string().min(1),
+    mustChangePassword: z.boolean(),
+  })
+  .superRefine((data, ctx) => {
+    const msg = validateStrongPassword(data.password.trim());
+    if (msg) ctx.addIssue({ code: z.ZodIssueCode.custom, message: msg, path: ["password"] });
+  });
 
 export async function getUsers(req: Request, res: Response, next: NextFunction) {
   try {
@@ -249,6 +260,47 @@ export async function putUser(req: Request, res: Response, next: NextFunction) {
       res.status(404).json({ data: null, error: { message: "User not found" } });
       return;
     }
+    res.json({ data: { user }, error: null });
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function putUserResetPassword(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.auth || !canCreateStaffAccounts(req.auth.role)) {
+      forbidden(res, "Only Super Admin or Admin can reset user passwords.");
+      return;
+    }
+
+    const id = paramId(req);
+    const body = resetUserPasswordSchema.parse(req.body);
+
+    const existing = await prisma.user.findUnique({ where: { id }, select: { role: true } });
+    if (!existing) {
+      res.status(404).json({ data: null, error: { message: "User not found" } });
+      return;
+    }
+    if (existing.role === "SUPER_ADMIN" && req.auth.role !== "SUPER_ADMIN") {
+      forbidden(res, "Only Super Admin can reset a Super Admin password.");
+      return;
+    }
+    if (existing.role === "PLATFORM_OWNER") {
+      forbidden(res, "Platform Owner accounts cannot be modified here.");
+      return;
+    }
+
+    const user = await resetUserPasswordApi({
+      userId: id,
+      password: body.password.trim(),
+      mustChangePassword: body.mustChangePassword,
+      actorUserId: req.auth.id,
+    });
+    if (!user) {
+      res.status(404).json({ data: null, error: { message: "User not found" } });
+      return;
+    }
+
     res.json({ data: { user }, error: null });
   } catch (e) {
     next(e);

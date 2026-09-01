@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
-import { requireAuth, requirePermission } from "../../middleware/auth.js";
+import { hasPermissionForMethod, requireAuth, requirePermission } from "../../middleware/auth.js";
 import { getCollectionPermission } from "../../constants/collection-permissions.js";
 import {
   getCollection,
@@ -24,16 +24,13 @@ collectionRouter.post(
 );
 
 /**
- * Default-deny: collection must be mapped to a permission, and the user must hold it
- * (SUPER_ADMIN bypasses inside requirePermission / here).
+ * Default-deny: collection must be mapped to a permission, and the user must hold it.
+ * Uses method-aware granular checks (for example *_VIEW, *_CREATE, *_EDIT)
+ * while keeping base-key backward compatibility.
  */
 export function requireCollectionPermission(req: Request, res: Response, next: NextFunction): void {
   if (!req.auth) {
     res.status(401).json({ data: null, error: { message: "Unauthorized" } });
-    return;
-  }
-  if (req.auth.role === "SUPER_ADMIN") {
-    next();
     return;
   }
   const collection = req.params.collection;
@@ -49,7 +46,7 @@ export function requireCollectionPermission(req: Request, res: Response, next: N
     });
     return;
   }
-  if (!req.auth.permissions || !req.auth.permissions.includes(permission)) {
+  if (!hasPermissionForMethod(req.auth, permission, req.method)) {
     res.status(403).json({
       data: null,
       error: { message: `Forbidden: Missing permission ${permission}` },

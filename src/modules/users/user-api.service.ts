@@ -264,3 +264,25 @@ export async function updateUserApi(
     return null;
   }
 }
+
+export async function resetUserPasswordApi(input: {
+  userId: string;
+  password: string;
+  mustChangePassword: boolean;
+  actorUserId: string;
+}): Promise<ReturnType<typeof toApiUser> | null> {
+  const existing = await prisma.user.findUnique({ where: { id: input.userId } });
+  if (!existing) return null;
+
+  const passwordHash = await bcrypt.hash(input.password, 10);
+  const updated = await prisma.user.update({
+    where: { id: input.userId },
+    data: {
+      passwordHash,
+      mustChangePassword: input.mustChangePassword,
+      passwordCreatedBy: input.actorUserId,
+      passwordUpdatedAt: new Date(),
+    },
+  });
+  return toApiUser(updated);
+}

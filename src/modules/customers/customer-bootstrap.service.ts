@@ -65,11 +65,44 @@ async function readMembershipsForCustomer(
     },
     select: { payload: true },
   });
-  const payload = row?.payload as { subscriptions?: unknown[] } | undefined;
-  const subscriptions = Array.isArray(payload?.subscriptions) ? payload!.subscriptions! : [];
-  return subscriptions.filter(
-    (s) => s && typeof s === "object" && (s as Record<string, unknown>).customerId === customerId
-  );
+  const payload = row?.payload as
+    | { packages?: unknown[]; subscriptions?: unknown[] }
+    | undefined;
+  const packages = Array.isArray(payload?.packages) ? payload.packages : [];
+  const subscriptions = Array.isArray(payload?.subscriptions) ? payload.subscriptions : [];
+
+  const packageNameById = new Map<string, string>();
+  for (const pkg of packages) {
+    if (!pkg || typeof pkg !== "object") continue;
+    const obj = pkg as Record<string, unknown>;
+    if (typeof obj.id === "string" && typeof obj.name === "string") {
+      packageNameById.set(obj.id, obj.name);
+    }
+  }
+
+  return subscriptions
+    .filter(
+      (s) => s && typeof s === "object" && (s as Record<string, unknown>).customerId === customerId
+    )
+    .map((s) => {
+      const membership = s as Record<string, unknown>;
+      const embeddedPackage = membership.package;
+      const embeddedPackageName =
+        embeddedPackage && typeof embeddedPackage === "object"
+          ? (embeddedPackage as Record<string, unknown>).name
+          : undefined;
+      const resolvedPackageName =
+        typeof embeddedPackageName === "string"
+          ? embeddedPackageName
+          : typeof membership.packageId === "string"
+            ? packageNameById.get(membership.packageId) ?? null
+            : null;
+
+      return {
+        ...membership,
+        packageName: resolvedPackageName,
+      };
+    });
 }
 
 export interface CustomerBootstrapPayload {

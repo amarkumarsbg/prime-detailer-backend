@@ -2,6 +2,11 @@ import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
 import type { UserRole } from "@prisma/client";
+import {
+  granularPermissionKey,
+  isGranularPermissionModule,
+  type GranularAction,
+} from "../constants/permission-keys.js";
 
 /** Staff roles (Prisma `UserRole`) plus the customer-portal pseudo-role. */
 export type AppRole = UserRole | "CUSTOMER";
@@ -76,11 +81,7 @@ export function requirePermission(permission: string) {
       res.status(401).json({ data: null, error: { message: "Unauthorized" } });
       return;
     }
-    if (req.auth.role === "SUPER_ADMIN") {
-      next();
-      return;
-    }
-    if (req.auth.permissions && req.auth.permissions.includes(permission)) {
+    if (hasPermissionForMethod(req.auth, permission, req.method)) {
       next();
       return;
     }
@@ -95,12 +96,7 @@ export function requireAnyPermission(permissions: string[]) {
       res.status(401).json({ data: null, error: { message: "Unauthorized" } });
       return;
     }
-    if (req.auth.role === "SUPER_ADMIN") {
-      next();
-      return;
-    }
-    const held = req.auth.permissions ?? [];
-    if (permissions.some((p) => held.includes(p))) {
+    if (permissions.some((p) => hasPermissionForMethod(req.auth!, p, req.method))) {
       next();
       return;
     }
@@ -111,4 +107,41 @@ export function requireAnyPermission(permissions: string[]) {
       },
     });
   };
+}
+
+function actionFromHttpMethod(method: string): GranularAction | null {
+  switch (method.toUpperCase()) {
+    case "GET":
+    case "HEAD":
+      return "VIEW";
+    case "POST":
+      return "CREATE";
+    case "PUT":
+    case "PATCH":
+      return "EDIT";
+    default:
+      return null;
+  }
+}
+
+/**
+ * Method-aware permission resolver:
+ * - SUPER_ADMIN / ADMIN bypass all checks.
+ * - Base permission key remains backward-compatible and implies all actions.
+ * - Granular modules may use *_CREATE / *_VIEW / *_EDIT.
+ * - DELETE on granular modules is admin-only (no staff permission grants delete).
+ */
+export function hasPermissionForMethod(auth: AuthUser, permission: string, method: string): boolean {
+  if (auth.role === "SUPER_ADMIN" || auth.role === "ADMIN") return true;
+
+  const held = auth.permissions ?? [];
+  if (held.includes(permission)) return true;
+
+  if (!isGranularPermissionModule(permission)) return false;
+  if (method.toUpperCase() === "DELETE") return false;
+
+  const action = actionFromHttpMethod(method);
+  if (!action) return false;
+
+  return held.includes(granularPermissionKey(permission, action));
 }
