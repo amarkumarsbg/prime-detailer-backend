@@ -6,6 +6,7 @@ import {
   patchPlatformOrganizationSubscription,
   postPlatformMarkPaid,
   postPlatformVerifyPayment,
+  postPlatformConvertTrial,
 } from "../organization/organization.controller.js";
 import {
   listPlatformRenewals,
@@ -32,6 +33,7 @@ platformRouter.get("/organizations/:orgId", getPlatformOrganization);
 platformRouter.patch("/organizations/:orgId/subscription", patchPlatformOrganizationSubscription);
 platformRouter.post("/organizations/:orgId/subscription/verify-payment", postPlatformVerifyPayment);
 platformRouter.post("/organizations/:orgId/subscription/mark-paid", postPlatformMarkPaid);
+platformRouter.post("/organizations/:orgId/subscription/convert-trial", postPlatformConvertTrial);
 
 // Suspend / restore
 platformRouter.post("/organizations/:orgId/suspend", suspendOrganization);

@@ -1,12 +1,33 @@
 /**
- * Workshop access evaluation unit checks.
+ * Workshop access evaluation unit checks (includes Trial).
  * Run: npx tsx scripts/workshop-access.test.ts
  */
 import assert from "node:assert/strict";
-import { evaluateWorkshopAccess } from "../src/lib/workshop-access.js";
+import { evaluateWorkshopAccess, addDays } from "../src/lib/workshop-access.js";
 
 assert.equal(evaluateWorkshopAccess({ isActive: true }, { status: "ACTIVE" }).ok, true);
 assert.equal(evaluateWorkshopAccess({ isActive: true }, { status: "PAST_DUE" }).ok, true);
+
+const now = new Date("2026-06-15T12:00:00.000Z");
+const future = addDays(now, 7);
+const past = addDays(now, -1);
+
+assert.equal(
+  evaluateWorkshopAccess({ isActive: true }, { status: "TRIAL", trialEndsAt: future }, now).ok,
+  true
+);
+assert.equal(
+  evaluateWorkshopAccess({ isActive: true }, { status: "TRIAL", trialEndsAt: null }, now).ok,
+  true
+);
+
+const trialEnded = evaluateWorkshopAccess(
+  { isActive: true },
+  { status: "TRIAL", trialEndsAt: past },
+  now
+);
+assert.equal(trialEnded.ok, false);
+if (!trialEnded.ok) assert.equal(trialEnded.code, "SUBSCRIPTION_TRIAL_ENDED");
 
 const inactive = evaluateWorkshopAccess({ isActive: false }, { status: "ACTIVE" });
 assert.equal(inactive.ok, false);

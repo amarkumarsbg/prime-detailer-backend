@@ -36,6 +36,7 @@
     "test:rewards": "tsx --test src/lib/__tests__/company-target-engine.test.ts",
     "test:workshop-access": "tsx scripts/workshop-access.test.ts",
     "test:provision": "tsx --test scripts/provision-organization.test.ts",
+    "test:subscription-trial": "tsx --test scripts/subscription-trial.test.ts",
     "test:security": "npm run test:collection-permissions && npm run test:permission-keys && npm run test:collection-payloads && npm run test:rbac && npm run test:staff-access && npm run test:job-card-pricing && npm run test:data-scope && npm run test:gst-settings && npm run test:referral-eligibility && npm run test:bootstrap-thin && npm run test:list-scope && npm run test:tenant-org && npm run test:reminder-job && npm run test:subscription-lock",
     "saas:set-branch-limit": "tsx scripts/saas-set-branch-limit.ts",
     "saas:ensure-platform-owner": "tsx scripts/ensure-platform-owner.ts",

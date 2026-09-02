@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import {
   adminMarkSubscriptionPaid,
+  convertTrialSubscription,
   getEntitlementForOrg,
   getOrganizationForPlatform,
   getSubscriptionPricingQuote,
@@ -181,7 +182,7 @@ export async function getPlatformOrganization(req: Request, res: Response, next:
 const patchSchema = z.object({
   planCode: z.enum(["STARTER", "GROWTH", "BUSINESS", "ENTERPRISE", "CUSTOM"]).optional(),
   planName: z.string().min(1).optional(),
-  status: z.enum(["ACTIVE", "PAST_DUE", "EXPIRED", "CANCELLED"]).optional(),
+  status: z.enum(["ACTIVE", "PAST_DUE", "EXPIRED", "CANCELLED", "TRIAL"]).optional(),
   limits: z
     .object({
       maxBranches: z.number().int().nonnegative().nullable(),
@@ -197,6 +198,7 @@ const patchSchema = z.object({
   termMonths: z.union([z.literal(12), z.literal(24), z.literal(36), z.literal(60)]).optional(),
   startsAt: z.string().datetime().nullable().optional(),
   expiresAt: z.string().datetime().nullable().optional(),
+  trialEndsAt: z.string().datetime().nullable().optional(),
   paymentStatus: z.enum(["PAID", "PENDING", "PROCESSING", "FAILED"]).optional(),
   lastPaymentTxnId: z.string().nullable().optional(),
 });
@@ -217,6 +219,12 @@ export async function patchPlatformOrganizationSubscription(
         startsAt: body.startsAt === undefined ? undefined : body.startsAt ? new Date(body.startsAt) : null,
         expiresAt:
           body.expiresAt === undefined ? undefined : body.expiresAt ? new Date(body.expiresAt) : null,
+        trialEndsAt:
+          body.trialEndsAt === undefined
+            ? undefined
+            : body.trialEndsAt
+              ? new Date(body.trialEndsAt)
+              : null,
       },
       actorFromReq(req)
     );
@@ -261,6 +269,28 @@ export async function postPlatformMarkPaid(req: Request, res: Response, next: Ne
     const orgId = paramOrgId(req);
     const body = markPaidSchema.parse(req.body ?? {});
     const entitlement = await adminMarkSubscriptionPaid(orgId, actorFromReq(req), body);
+    res.json({ data: entitlement, error: null });
+  } catch (e) {
+    next(e);
+  }
+}
+
+const convertTrialSchema = z.object({
+  termMonths: z.union([z.literal(12), z.literal(24), z.literal(36), z.literal(60)]).optional(),
+  planCode: z.enum(["STARTER", "GROWTH", "BUSINESS", "ENTERPRISE", "CUSTOM"]).optional(),
+  /**
+   * When true, sets paymentStatus PAID. Default false keeps PENDING
+   * (platform can mark-paid / verify-payment separately).
+   */
+  markPaid: z.boolean().optional(),
+});
+
+/** POST /api/platform/organizations/:orgId/subscription/convert-trial */
+export async function postPlatformConvertTrial(req: Request, res: Response, next: NextFunction) {
+  try {
+    const orgId = paramOrgId(req);
+    const body = convertTrialSchema.parse(req.body ?? {});
+    const entitlement = await convertTrialSubscription(orgId, actorFromReq(req), body);
     res.json({ data: entitlement, error: null });
   } catch (e) {
     next(e);

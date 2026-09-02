@@ -31,6 +31,7 @@ enum SubscriptionStatus {
   PAST_DUE
   EXPIRED
   CANCELLED
+  TRIAL
 }
 
 enum SubscriptionPaymentStatus {
@@ -124,6 +125,11 @@ model OrganizationSubscription {
    * End of paid period. Export lock when ≤30 days remain.
    */
   expiresAt           DateTime?
+  /**
+   * When status is TRIAL, workshop access ends at this timestamp (inclusive until past).
+   * Cleared when converting trial → paid/ACTIVE.
+   */
+  trialEndsAt         DateTime?
   /**
    * Legacy alias mirrored from expiresAt for older clients.
    */

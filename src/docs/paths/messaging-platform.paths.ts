@@ -382,7 +382,7 @@ export const platformPaths: OpenApiPaths = {
           planName: { type: "string" },
           status: {
             type: "string",
-            enum: ["ACTIVE", "PAST_DUE", "EXPIRED", "CANCELLED"],
+            enum: ["ACTIVE", "PAST_DUE", "EXPIRED", "CANCELLED", "TRIAL"],
           },
           limits: {
             type: "object",

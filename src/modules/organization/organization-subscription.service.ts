@@ -29,6 +29,7 @@ import {
   termLabelFromMonths,
   type GraceOrLockStatus,
 } from "../../lib/subscription-lock.js";
+import { isWorkshopAllowedStatus } from "../../lib/workshop-access.js";
 
 export const DEFAULT_ORG_ID = "org-default";
 
@@ -51,11 +52,14 @@ export type EntitlementPayload = {
     termMonths: number;
     startsAt: string | null;
     expiresAt: string | null;
+    trialEndsAt: string | null;
     paymentStatus: SubscriptionPaymentStatus;
     lastPaymentTxnId: string | null;
     daysRemaining: number | null;
     graceOrLock: GraceOrLockStatus;
     exportLocked: boolean;
+    /** True when status is TRIAL and trial has not ended. */
+    isTrial: boolean;
   };
   usage: {
     branchesUsed: number;
@@ -129,6 +133,14 @@ function resolveExpiresAt(sub: OrganizationSubscription): Date | null {
   return sub.expiresAt ?? sub.currentPeriodEnd ?? null;
 }
 
+/** End date used for entitlement countdown / export lock (trial uses trialEndsAt). */
+function resolveEntitlementEndDate(sub: OrganizationSubscription): Date | null {
+  if (sub.status === "TRIAL") {
+    return sub.trialEndsAt ?? null;
+  }
+  return resolveExpiresAt(sub);
+}
+
 function normalizedLimitsForSubscription(sub: OrganizationSubscription): PlanLimits {
   const parsed = parsePlanLimits(sub.limits);
   const template = PLAN_CATALOG[sub.planCode]?.limits;
@@ -149,10 +161,14 @@ export function toEntitlement(
   const limits = normalizedLimitsForSubscription(sub);
   const max = effectiveMaxBranches(limits, sub.maxBranchesOverride);
   const maxUsers = effectiveMaxUsers(limits, sub.maxUsersOverride);
-  const statusOk = sub.status === "ACTIVE" || sub.status === "PAST_DUE";
-  const canCreate = statusOk && canCreateWithLimit(branchesUsed, max);
-  const expiresAt = resolveExpiresAt(sub);
-  const exportLocked = isExportLocked(expiresAt, now);
+  const statusOk = isWorkshopAllowedStatus(sub.status);
+  const trialEnded =
+    sub.status === "TRIAL" &&
+    sub.trialEndsAt != null &&
+    sub.trialEndsAt.getTime() < now.getTime();
+  const canCreate = statusOk && !trialEnded && canCreateWithLimit(branchesUsed, max);
+  const entitlementEnd = resolveEntitlementEndDate(sub);
+  const exportLocked = isExportLocked(entitlementEnd, now);
   const termMonths = normalizeTermMonths(sub.termMonths);
   return {
     organization: { id: org.id, name: org.name, slug: org.slug },
@@ -168,15 +184,17 @@ export function toEntitlement(
       contactUsUrl: sub.contactUsUrl,
       contactPhone: sub.contactPhone,
       upgradeUrl: sub.upgradeUrl,
-      currentPeriodEnd: expiresAt?.toISOString() ?? null,
+      currentPeriodEnd: resolveExpiresAt(sub)?.toISOString() ?? null,
       termMonths,
       startsAt: sub.startsAt?.toISOString() ?? null,
-      expiresAt: expiresAt?.toISOString() ?? null,
+      expiresAt: resolveExpiresAt(sub)?.toISOString() ?? null,
+      trialEndsAt: sub.trialEndsAt?.toISOString() ?? null,
       paymentStatus: sub.paymentStatus,
       lastPaymentTxnId: sub.lastPaymentTxnId,
-      daysRemaining: daysUntilExpiry(expiresAt, now),
-      graceOrLock: graceOrLockStatus(expiresAt, now),
+      daysRemaining: daysUntilExpiry(entitlementEnd, now),
+      graceOrLock: graceOrLockStatus(entitlementEnd, now),
       exportLocked,
+      isTrial: sub.status === "TRIAL" && !trialEnded,
     },
     usage: { branchesUsed, usersUsed },
     canCreateBranch: canCreate,
@@ -253,13 +271,16 @@ export async function assertCanCreateUser(organizationId: string): Promise<Entit
   if (!entitlement) {
     throw new AppHttpError(403, "Organization subscription not found.", "SUBSCRIPTION_MISSING");
   }
-  const statusOk =
-    entitlement.subscription.status === "ACTIVE" || entitlement.subscription.status === "PAST_DUE";
-  if (!statusOk) {
+  const statusOk = isWorkshopAllowedStatus(entitlement.subscription.status);
+  if (!statusOk || (entitlement.subscription.status === "TRIAL" && !entitlement.subscription.isTrial)) {
     throw new AppHttpError(
       403,
       "Subscription is not active. Renew or restore access before adding users.",
-      entitlement.subscription.status === "EXPIRED" ? "SUBSCRIPTION_EXPIRED" : "SUBSCRIPTION_CANCELLED",
+      entitlement.subscription.status === "EXPIRED"
+        ? "SUBSCRIPTION_EXPIRED"
+        : entitlement.subscription.status === "TRIAL"
+          ? "SUBSCRIPTION_TRIAL_ENDED"
+          : "SUBSCRIPTION_CANCELLED",
       {
         planName: entitlement.subscription.planName,
         status: entitlement.subscription.status,
@@ -321,6 +342,7 @@ export type PatchSubscriptionInput = {
   termMonths?: number;
   startsAt?: Date | null;
   expiresAt?: Date | null;
+  trialEndsAt?: Date | null;
   paymentStatus?: SubscriptionPaymentStatus;
   lastPaymentTxnId?: string | null;
 };
@@ -390,6 +412,7 @@ export async function patchOrganizationSubscription(
       startsAt: input.startsAt !== undefined ? input.startsAt : sub.startsAt,
       expiresAt: nextExpires,
       currentPeriodEnd: nextExpires,
+      trialEndsAt: input.trialEndsAt !== undefined ? input.trialEndsAt : sub.trialEndsAt,
       paymentStatus: input.paymentStatus ?? sub.paymentStatus,
       lastPaymentTxnId:
         input.lastPaymentTxnId !== undefined ? input.lastPaymentTxnId : sub.lastPaymentTxnId,
@@ -406,6 +429,7 @@ export async function patchOrganizationSubscription(
         planCode: updated.planCode,
         status: updated.status,
         expiresAt: resolveExpiresAt(updated)?.toISOString() ?? null,
+        trialEndsAt: updated.trialEndsAt?.toISOString() ?? null,
         paymentStatus: updated.paymentStatus,
         termMonths: updated.termMonths,
       },
@@ -904,6 +928,7 @@ export async function verifySubscriptionPayment(
         paymentStatus: "PAID",
         lastPaymentTxnId: txnRef,
         status: "ACTIVE",
+        trialEndsAt: null,
         limits: asLimitsJson(currentLimits),
         maxBranchesOverride: nextBranchOverride,
         maxUsersOverride: nextUsersOverride,
@@ -1037,4 +1062,103 @@ export async function adminMarkSubscriptionPaid(
     },
     actorLabel
   );
+}
+
+/**
+ * Convert a TRIAL subscription to a paid-term ACTIVE subscription.
+ *
+ * - Clears trialEndsAt
+ * - Sets status ACTIVE
+ * - Sets expiresAt / currentPeriodEnd from termMonths (from now)
+ * - paymentStatus stays PENDING unless markPaid=true (avoids accidental PAID)
+ * - Optional planCode upgrade at convert time
+ */
+export async function convertTrialSubscription(
+  orgId: string,
+  actorLabel: string,
+  opts?: {
+    termMonths?: number;
+    planCode?: PlanCode;
+    markPaid?: boolean;
+  }
+): Promise<EntitlementPayload> {
+  const org = await prisma.organization.findUnique({
+    where: { id: orgId },
+    include: { subscription: true },
+  });
+  if (!org?.subscription) {
+    throw new AppHttpError(404, "Organization not found", "ORG_NOT_FOUND");
+  }
+  const sub = org.subscription;
+  if (sub.status !== "TRIAL") {
+    throw new AppHttpError(
+      409,
+      "Subscription is not in TRIAL status.",
+      "NOT_IN_TRIAL",
+      { status: sub.status }
+    );
+  }
+
+  const termMonths = normalizeTermMonths(opts?.termMonths ?? sub.termMonths);
+  const now = new Date();
+  const periodEnd = addMonths(now, termMonths);
+  const markPaid = opts?.markPaid === true;
+
+  let nextPlanCode = sub.planCode;
+  let nextPlanName = sub.planName;
+  let nextLimits = parsePlanLimits(sub.limits);
+  if (opts?.planCode) {
+    const template = PLAN_CATALOG[opts.planCode];
+    nextPlanCode = opts.planCode;
+    nextPlanName = template.planName;
+    nextLimits = { ...template.limits };
+  }
+
+  const before = {
+    status: sub.status,
+    trialEndsAt: sub.trialEndsAt?.toISOString() ?? null,
+    expiresAt: resolveExpiresAt(sub)?.toISOString() ?? null,
+    paymentStatus: sub.paymentStatus,
+    planCode: sub.planCode,
+  };
+
+  await prisma.$transaction([
+    prisma.organizationSubscription.update({
+      where: { organizationId: orgId },
+      data: {
+        status: "ACTIVE",
+        trialEndsAt: null,
+        startsAt: sub.startsAt ?? now,
+        expiresAt: periodEnd,
+        currentPeriodEnd: periodEnd,
+        termMonths,
+        planCode: nextPlanCode,
+        planName: nextPlanName,
+        limits: asLimitsJson(nextLimits),
+        paymentStatus: markPaid ? "PAID" : "PENDING",
+      },
+    }),
+    prisma.platformAuditLog.create({
+      data: {
+        organizationId: orgId,
+        actor: actorLabel,
+        action: "subscription.trial_converted",
+        before,
+        after: {
+          status: "ACTIVE",
+          trialEndsAt: null,
+          expiresAt: periodEnd.toISOString(),
+          paymentStatus: markPaid ? "PAID" : "PENDING",
+          planCode: nextPlanCode,
+          termMonths,
+        },
+      },
+    }),
+  ]);
+
+  const usage = await usageForOrg(orgId);
+  const updated = await prisma.organizationSubscription.findUniqueOrThrow({
+    where: { organizationId: orgId },
+  });
+  return toEntitlement(org, updated, usage.branchesUsed, usage.usersUsed);
 }

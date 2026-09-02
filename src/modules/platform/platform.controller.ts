@@ -465,11 +465,13 @@ const provisionSchema = z.object({
   ownerPassword: z.string().min(8).max(200),
   branchName: z.string().min(1).max(120),
   organizationSlug: z.string().min(1).max(64).optional(),
+  startTrial: z.boolean().optional(),
+  trialDays: z.number().int().min(1).max(90).optional(),
 });
 
 /**
  * Platform-only: create Organization + HQ Branch + SUPER_ADMIN owner + STARTER subscription
- * (paymentStatus PENDING). Does not return passwords, hashes, tokens, or secrets.
+ * (paymentStatus PENDING; optional TRIAL via startTrial). Does not return passwords/hashes/tokens.
  */
 export async function postPlatformProvisionOrganization(
   req: Request,
