@@ -121,8 +121,8 @@ export async function listCollectionItems(
             )})`
           : Prisma.sql`payload`;
 
-      const rows = await prisma.$queryRaw<Array<{ payload: unknown; total_count: bigint }>>`
-        SELECT ${payloadExpr} AS payload, COUNT(*) OVER() AS total_count
+      const rows = await prisma.$queryRaw<Array<{ payload: unknown; total_count: bigint; entityId: string }>>`
+        SELECT ${payloadExpr} AS payload, "entityId", COUNT(*) OVER() AS total_count
         FROM "AppJsonRow"
         WHERE collection = ${collection}
         ${orgFilter}
@@ -131,7 +131,7 @@ export async function listCollectionItems(
       `;
       const total = rows.length > 0 ? Number(rows[0]!.total_count) : 0;
       return {
-        items: rows.map((r) => r.payload),
+        items: rows.map((r) => ({ id: r.entityId, ...(r.payload as object) })),
         page: opts.page,
         pageSize: opts.pageSize,
         total,
@@ -144,16 +144,16 @@ export async function listCollectionItems(
     const rows = await prisma.appJsonRow.findMany({
       where,
       orderBy: { createdAt: "desc" },
-      select: { payload: true },
+      select: { payload: true, entityId: true },
     });
     items = rows.map((r) => {
       // Apply stripPayloadFields in Node for the general (non-fast) path.
       if (opts.stripPayloadFields?.length && r.payload && typeof r.payload === "object") {
-        const copy = { ...(r.payload as Record<string, unknown>) };
+        const copy = { id: r.entityId, ...(r.payload as Record<string, unknown>) } as Record<string, unknown>;
         for (const f of opts.stripPayloadFields) delete copy[f];
         return copy;
       }
-      return r.payload;
+      return r.payload && typeof r.payload === "object" ? { id: r.entityId, ...(r.payload as Record<string, unknown>) } : r.payload;
     });
     // Data is already ordered by createdAt DESC from DB; sortCollectionPayloads re-sorts
     // only when the collection uses a non-createdAt primary sort field (e.g. appointments by date).

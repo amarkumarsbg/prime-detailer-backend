@@ -54,7 +54,10 @@ export async function logBusinessActivity(
     detailsText = `${params.action} performed`;
   }
   
+  const activityLogId = randomUUID();
+  
   const payload = {
+    id: activityLogId,
     userId: ctx.userId,
     userName,
     action: params.action,
@@ -65,7 +68,6 @@ export async function logBusinessActivity(
     details: detailsText,
   };
 
-  const activityLogId = randomUUID();
 
   try {
     await prisma.appJsonRow.upsert({
