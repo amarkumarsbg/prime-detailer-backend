@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
 import { hasPermissionForMethod, requireAuth, requirePermission } from "../../middleware/auth.js";
+import { requireWorkshopAccess } from "../../middleware/workshop-access.js";
 import { getCollectionPermission } from "../../constants/collection-permissions.js";
 import {
   getCollection,
@@ -15,6 +16,7 @@ import { logoUploadHandler } from "../../middleware/logo-upload.js";
 export const collectionRouter = Router();
 
 collectionRouter.use(requireAuth);
+collectionRouter.use(requireWorkshopAccess);
 
 collectionRouter.post(
   "/appSettings/logo",

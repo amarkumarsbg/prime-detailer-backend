@@ -253,6 +253,21 @@ export async function assertCanCreateUser(organizationId: string): Promise<Entit
   if (!entitlement) {
     throw new AppHttpError(403, "Organization subscription not found.", "SUBSCRIPTION_MISSING");
   }
+  const statusOk =
+    entitlement.subscription.status === "ACTIVE" || entitlement.subscription.status === "PAST_DUE";
+  if (!statusOk) {
+    throw new AppHttpError(
+      403,
+      "Subscription is not active. Renew or restore access before adding users.",
+      entitlement.subscription.status === "EXPIRED" ? "SUBSCRIPTION_EXPIRED" : "SUBSCRIPTION_CANCELLED",
+      {
+        planName: entitlement.subscription.planName,
+        status: entitlement.subscription.status,
+        upgradeUrl: entitlement.subscription.upgradeUrl,
+        contactUsUrl: entitlement.subscription.contactUsUrl,
+      }
+    );
+  }
   const maxUsers = entitlement.subscription.effectiveMaxUsers;
   if (maxUsers === null || maxUsers === undefined) {
     return entitlement;

@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { authenticateUser, signAuthToken, touchUserLastLogin } from "./auth.service.js";
+import { assertOrgAllowsLogin } from "../../lib/workshop-access.js";
 import {
   consumeLoginOtpIfValid,
   findActiveUserByTenDigitPhone,
@@ -259,6 +260,9 @@ export async function verifyLoginOtp(req: Request, res: Response, next: NextFunc
       res.status(401).json({ data: null, error: { message: "Invalid or expired OTP" } });
       return;
     }
+    if (user.role !== "PLATFORM_OWNER") {
+      await assertOrgAllowsLogin(user.organizationId);
+    }
     await touchUserLastLogin(user.id);
     const branch = await prisma.branch.findUnique({ where: { id: user.branchId } });
     res.json({ data: authSuccessResponse(user, branch), error: null });
@@ -274,6 +278,9 @@ export async function login(req: Request, res: Response, next: NextFunction) {
     if (!result) {
       res.status(401).json({ data: null, error: { message: "Invalid email or password" } });
       return;
+    }
+    if (result.user.role !== "PLATFORM_OWNER") {
+      await assertOrgAllowsLogin(result.user.organizationId);
     }
     // user + branch are returned together; branch lookup ran in parallel with bcrypt.
     res.json({ data: authSuccessResponse(result.user, result.branch), error: null });

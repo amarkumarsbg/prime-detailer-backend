@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth, requirePermission } from "../../middleware/auth.js";
+import { requireWorkshopAccess } from "../../middleware/workshop-access.js";
 import { inspectionPhotoUploadHandler } from "../../middleware/inspection-photo-upload.js";
 import { postJobCardInspectionPhoto } from "./job-card-upload.controller.js";
 import {
@@ -17,6 +18,7 @@ import {
 export const jobCardsRouter = Router();
 
 jobCardsRouter.use(requireAuth);
+jobCardsRouter.use(requireWorkshopAccess);
 jobCardsRouter.use(requirePermission("JOB_CARDS"));
 
 jobCardsRouter.get("/", getJobCards);

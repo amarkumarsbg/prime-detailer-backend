@@ -3,6 +3,7 @@ import { z } from "zod";
 import { authenticateCustomer, signCustomerAuthToken, setCustomerPassword } from "./customer-auth.service.js";
 import { getCustomerById } from "./customer.service.js";
 import { customerPasswordSchema } from "../../lib/password-policy.js";
+import { assertOrgAllowsLogin, assertWorkshopAccess } from "../../lib/workshop-access.js";
 
 const loginSchema = z.object({
   phone: z.string().min(1),
@@ -23,6 +24,10 @@ export async function postCustomerLogin(req: Request, res: Response, next: NextF
       res.status(401).json({ data: null, error: { message: "Invalid phone or password" } });
       return;
     }
+
+    // Customers cannot renew SaaS; require full workshop access at login.
+    await assertOrgAllowsLogin(customer.organizationId);
+    await assertWorkshopAccess(customer.organizationId);
 
     const accessToken = signCustomerAuthToken(customer);
     const user = await getCustomerById(customer.id, customer.organizationId);

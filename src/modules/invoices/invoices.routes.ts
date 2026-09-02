@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth, requirePermission } from "../../middleware/auth.js";
+import { requireWorkshopAccess } from "../../middleware/workshop-access.js";
 import {
   deleteInvoiceRow,
   getInvoices,
@@ -16,6 +17,7 @@ import {
 export const invoicesRouter = Router();
 
 invoicesRouter.use(requireAuth);
+invoicesRouter.use(requireWorkshopAccess);
 invoicesRouter.use(requirePermission("BILLING"));
 
 invoicesRouter.get("/", getInvoices);

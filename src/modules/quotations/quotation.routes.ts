@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth, requirePermission } from "../../middleware/auth.js";
+import { requireWorkshopAccess } from "../../middleware/workshop-access.js";
 import { postConvertQuotationToJob } from "./quotation-convert.controller.js";
 import {
   deleteQuotationRow,
@@ -15,6 +16,7 @@ import {
 export const quotationRouter = Router();
 
 quotationRouter.use(requireAuth);
+quotationRouter.use(requireWorkshopAccess);
 quotationRouter.use(requirePermission("QUOTATIONS"));
 
 quotationRouter.get("/", getQuotations);

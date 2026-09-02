@@ -18,6 +18,35 @@ function paramId(req: Request): string {
   return Array.isArray(raw) ? raw[0]! : raw!;
 }
 
+async function resolveCallerOrganizationId(req: Request): Promise<string | null> {
+  let organizationId = req.auth?.organizationId;
+  if (!organizationId && req.auth?.id) {
+    const row = await prisma.user.findUnique({
+      where: { id: req.auth.id },
+      select: { organizationId: true },
+    });
+    organizationId = row?.organizationId;
+  }
+  return organizationId ?? null;
+}
+
+/** Returns the branch when it belongs to the caller's org; otherwise writes 404 and returns null. */
+async function requireOrgBranch(
+  res: Response,
+  branchId: string,
+  organizationId: string
+): Promise<{ id: string; organizationId: string } | null> {
+  const branch = await prisma.branch.findFirst({
+    where: { id: branchId, organizationId },
+    select: { id: true, organizationId: true },
+  });
+  if (!branch) {
+    res.status(404).json({ data: null, error: { message: "Branch not found" } });
+    return null;
+  }
+  return branch;
+}
+
 const tenDigitPhone = z.string().regex(/^\d{10}$/, "Must be a 10-digit mobile number");
 const optionalTenDigitPhone = z
   .string()
@@ -43,14 +72,7 @@ const branchSchema = z.object({
 
 export async function getBranches(req: Request, res: Response, next: NextFunction) {
   try {
-    let organizationId = req.auth?.organizationId;
-    if (!organizationId && req.auth?.id) {
-      const row = await prisma.user.findUnique({
-        where: { id: req.auth.id },
-        select: { organizationId: true },
-      });
-      organizationId = row?.organizationId;
-    }
+    const organizationId = await resolveCallerOrganizationId(req);
     const branches = await listBranchesApi(organizationId);
     res.json({ data: { branches }, error: null });
   } catch (e) {
@@ -64,14 +86,7 @@ export async function postBranch(req: Request, res: Response, next: NextFunction
       forbidden(res, "You do not have permission to create branches.");
       return;
     }
-    let orgId = req.auth?.organizationId;
-    if (!orgId && req.auth?.id) {
-      const row = await prisma.user.findUnique({
-        where: { id: req.auth.id },
-        select: { organizationId: true },
-      });
-      orgId = row?.organizationId;
-    }
+    const orgId = await resolveCallerOrganizationId(req);
     if (!orgId) {
       res.status(403).json({
         data: null,
@@ -98,7 +113,16 @@ export async function putBranch(req: Request, res: Response, next: NextFunction)
       forbidden(res, "You do not have permission to update branches.");
       return;
     }
+    const orgId = await resolveCallerOrganizationId(req);
+    if (!orgId) {
+      res.status(403).json({
+        data: null,
+        error: { message: "Organization not found on user", code: "ORG_MISSING" },
+      });
+      return;
+    }
     const id = paramId(req);
+    if (!(await requireOrgBranch(res, id, orgId))) return;
     const body = patchBranchSchema.parse(req.body);
     const branch = await patchBranchApi(id, body);
     if (!branch) {
@@ -117,7 +141,16 @@ export async function getBranchDeletionCheck(req: Request, res: Response, next: 
       forbidden(res, "You do not have permission to manage branches.");
       return;
     }
+    const orgId = await resolveCallerOrganizationId(req);
+    if (!orgId) {
+      res.status(403).json({
+        data: null,
+        error: { message: "Organization not found on user", code: "ORG_MISSING" },
+      });
+      return;
+    }
     const id = paramId(req);
+    if (!(await requireOrgBranch(res, id, orgId))) return;
     const blockers = await getBranchDeletionBlockers(id);
     res.json({
       data: { canDelete: blockers.length === 0, blockers },
@@ -134,7 +167,16 @@ export async function deleteBranch(req: Request, res: Response, next: NextFuncti
       forbidden(res, "You do not have permission to delete branches.");
       return;
     }
+    const orgId = await resolveCallerOrganizationId(req);
+    if (!orgId) {
+      res.status(403).json({
+        data: null,
+        error: { message: "Organization not found on user", code: "ORG_MISSING" },
+      });
+      return;
+    }
     const id = paramId(req);
+    if (!(await requireOrgBranch(res, id, orgId))) return;
     const blockers = await getBranchDeletionBlockers(id);
     if (blockers.length > 0) {
       res.status(409).json({
