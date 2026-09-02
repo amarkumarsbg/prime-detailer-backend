@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { PLAN_CATALOG } from "../lib/plan-catalog.js";
 import { calculateSubscriptionPricing } from "../lib/subscription-pricing.js";
+import { registerSelfServeTenant } from "../modules/public/self-serve-register.service.js";
 
 type LimiterState = { count: number; resetAt: number };
 
@@ -57,6 +58,18 @@ const signupSchema = z.object({
   phone: z.string().min(7).max(20),
   companyName: z.string().min(1).max(160),
   message: z.string().max(2000).optional(),
+  source: z.string().max(80).optional(),
+});
+
+/** Self-serve tenant creation (trial). Password strength enforced in provisionTenant. */
+const registerSchema = z.object({
+  organizationName: z.string().min(1).max(160),
+  ownerName: z.string().min(1).max(120),
+  ownerEmail: z.string().email().max(200),
+  ownerPhone: z.string().min(7).max(20),
+  ownerPassword: z.string().min(8).max(128),
+  branchName: z.string().min(1).max(120).default("HQ"),
+  organizationSlug: z.string().min(1).max(48).optional(),
   source: z.string().max(80).optional(),
 });
 
@@ -117,6 +130,67 @@ export async function postPublicSignup(req: Request, res: Response, next: NextFu
     });
 
     res.status(201).json({ data: { ok: true, id }, error: null });
+  } catch (e) {
+    next(e);
+  }
+}
+
+/**
+ * Self-serve register: creates Organization + HQ + owner SUPER_ADMIN on TRIAL.
+ * No auth, no JWT — caller must login via /api/auth afterward.
+ */
+export async function postPublicRegister(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!enforceRateLimit(req, "public-register", 5, 15 * 60_000)) {
+      res.status(429).json({
+        data: null,
+        error: { message: "Too many registration attempts. Please try again later." },
+      });
+      return;
+    }
+
+    const body = registerSchema.parse(req.body ?? {});
+    const ip = getClientIp(req);
+    const result = await registerSelfServeTenant(
+      {
+        organizationName: body.organizationName,
+        ownerName: body.ownerName,
+        ownerEmail: body.ownerEmail,
+        ownerPhone: body.ownerPhone,
+        ownerPassword: body.ownerPassword,
+        branchName: body.branchName,
+        organizationSlug: body.organizationSlug,
+      },
+      `public-register:${ip}`
+    );
+
+    res.status(201).json({
+      data: {
+        organization: result.organization,
+        branch: result.branch,
+        owner: {
+          id: result.owner.id,
+          name: result.owner.name,
+          email: result.owner.email,
+          phone: result.owner.phone,
+          role: result.owner.role,
+          organizationId: result.owner.organizationId,
+          branchId: result.owner.branchId,
+        },
+        subscription: {
+          id: result.subscription.id,
+          planCode: result.subscription.planCode,
+          planName: result.subscription.planName,
+          status: result.subscription.status,
+          paymentStatus: result.subscription.paymentStatus,
+          trialEndsAt: result.subscription.trialEndsAt,
+          limits: result.subscription.limits,
+        },
+        message: "Account created on trial. Sign in with your email and password.",
+        source: body.source ?? null,
+      },
+      error: null,
+    });
   } catch (e) {
     next(e);
   }
