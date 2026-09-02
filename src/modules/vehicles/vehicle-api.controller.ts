@@ -129,6 +129,8 @@ export async function postVehicle(req: Request, res: Response, next: NextFunctio
       organizationId: scope.organizationId,
       segment: body.segment as VehicleSegment,
       fuelType: body.fuelType as FuelType,
+      createdByUserId: req.auth?.id,
+      updatedByUserId: req.auth?.id,
     });
     res.status(201).json({ data: { vehicle }, error: null });
   } catch (e) {
@@ -211,6 +213,7 @@ export async function putVehicle(req: Request, res: Response, next: NextFunction
       ...body,
       segment: body.segment as VehicleSegment | undefined,
       fuelType: body.fuelType as FuelType | undefined,
+      updatedByUserId: req.auth?.id,
     });
     if (!vehicle) {
       res.status(404).json({ data: null, error: { message: "Vehicle not found" } });
@@ -229,7 +232,7 @@ export async function removeVehicle(req: Request, res: Response, next: NextFunct
       res.status(401).json({ data: null, error: { message: "Unauthorized" } });
       return;
     }
-    const ok = await deleteVehicleApi(paramId(req), scope.organizationId);
+    const ok = await deleteVehicleApi(paramId(req), scope.organizationId, req.auth?.id);
     if (!ok) {
       res.status(404).json({ data: null, error: { message: "Vehicle not found" } });
       return;

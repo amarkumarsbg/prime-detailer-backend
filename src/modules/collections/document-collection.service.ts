@@ -21,14 +21,14 @@ export function createDocumentCollectionService(collection: string) {
     get(organizationId: string, entityId: string) {
       return getCollectionItem(collection, entityId, organizationId);
     },
-    upsert(organizationId: string, entityId: string, payload: unknown) {
-      return upsertCollectionItem(collection, entityId, payload, organizationId);
+    upsert(organizationId: string, entityId: string, payload: unknown, ctx?: import("./collection.dispatcher.js").CollectionWriteContext) {
+      return upsertCollectionItem(collection, entityId, payload, organizationId, ctx);
     },
-    delete(organizationId: string, entityId: string) {
-      return deleteCollectionItem(collection, entityId, organizationId);
+    delete(organizationId: string, entityId: string, ctx?: import("./collection.dispatcher.js").CollectionWriteContext) {
+      return deleteCollectionItem(collection, entityId, organizationId, ctx);
     },
-    replace(organizationId: string, items: { id: string }[]) {
-      return replaceCollectionArray(collection, items, organizationId);
+    replace(organizationId: string, items: { id: string }[], ctx?: import("./collection.dispatcher.js").CollectionWriteContext) {
+      return replaceCollectionArray(collection, items, organizationId, ctx);
     },
   };
 }

@@ -115,6 +115,8 @@ export async function createCustomer(data: {
   password?: string;
   /** Staff `User.id` setting the password, when tracked. */
   passwordCreatedBy?: string;
+  createdByUserId?: string;
+  updatedByUserId?: string;
 }): Promise<{ customer: ReturnType<typeof toApiCustomer>; temporaryPassword?: string }> {
   const norm = normalizePhone(data.phone);
   if (norm.length === 10) {
@@ -163,10 +165,21 @@ export async function createCustomer(data: {
       emailVerified: data.emailVerified ?? false,
       createdAt,
       passwordHash,
-      passwordCreatedBy: useExplicitPassword ? data.passwordCreatedBy ?? null : null,
-      passwordUpdatedAt: new Date(),
+      passwordCreatedBy: data.passwordCreatedBy || null,
+      createdByUserId: data.createdByUserId || null,
+      updatedByUserId: data.updatedByUserId || null,
     },
   });
+
+  if (data.createdByUserId) {
+    const { logBusinessActivity } = await import("../../services/activity-logger.service.js");
+    await logBusinessActivity({ organizationId: data.organizationId, hasJobCardPricingPermission: false, userId: data.createdByUserId }, {
+      action: "CREATE_CUSTOMER",
+      entityType: "CUSTOMER",
+      entityId: id,
+    });
+  }
+
   return {
     customer: toApiCustomer(row),
     ...(useExplicitPassword ? {} : { temporaryPassword: plainPassword }),
@@ -195,6 +208,7 @@ export async function updateCustomer(
     password: string;
     /** Staff `User.id` setting the password, when tracked. */
     passwordCreatedBy: string;
+    updatedByUserId: string;
   }>
 ) {
   if (data.phone !== undefined) {
@@ -249,17 +263,36 @@ export async function updateCustomer(
         passwordCreatedBy: data.passwordCreatedBy ?? null,
         passwordUpdatedAt: new Date(),
       }),
+      ...(data.updatedByUserId !== undefined && { updatedByUserId: data.updatedByUserId }),
     },
   });
+
+  if (data.updatedByUserId) {
+    const { logBusinessActivity } = await import("../../services/activity-logger.service.js");
+    await logBusinessActivity({ organizationId, hasJobCardPricingPermission: false, userId: data.updatedByUserId }, {
+      action: "UPDATE_CUSTOMER",
+      entityType: "CUSTOMER",
+      entityId: id,
+    });
+  }
+
   return toApiCustomer(row);
 }
 
-export async function deleteCustomer(id: string, organizationId: string) {
+export async function deleteCustomer(id: string, organizationId: string, userId?: string) {
   const owned = await prisma.customer.findFirst({ where: { id, organizationId } });
   if (!owned) return false;
   await prisma.vehicle.deleteMany({ where: { customerId: id, organizationId } });
   try {
     await prisma.customer.delete({ where: { id } });
+    if (userId) {
+      const { logBusinessActivity } = await import("../../services/activity-logger.service.js");
+      await logBusinessActivity({ organizationId, hasJobCardPricingPermission: false, userId }, {
+        action: "DELETE_CUSTOMER",
+        entityType: "CUSTOMER",
+        entityId: id,
+      });
+    }
   } catch {
     return false;
   }

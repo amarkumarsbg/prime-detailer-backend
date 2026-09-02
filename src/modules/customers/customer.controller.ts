@@ -115,6 +115,8 @@ export async function postCustomer(req: Request, res: Response, next: NextFuncti
       ...body,
       organizationId: scope.organizationId,
       passwordCreatedBy: body.password ? req.auth?.id : undefined,
+      createdByUserId: req.auth?.id,
+      updatedByUserId: req.auth?.id,
     });
 
     let credentialsSent = false;
@@ -188,6 +190,7 @@ export async function putCustomer(req: Request, res: Response, next: NextFunctio
     const customer = await updateCustomer(paramId(req), scope.organizationId, {
       ...body,
       passwordCreatedBy: body.password ? req.auth?.id : undefined,
+      updatedByUserId: req.auth?.id,
     });
     if (!customer) {
       res.status(404).json({ data: null, error: { message: "Customer not found" } });
@@ -226,7 +229,7 @@ export async function removeCustomer(req: Request, res: Response, next: NextFunc
       res.status(401).json({ data: null, error: { message: "Unauthorized" } });
       return;
     }
-    const ok = await deleteCustomer(paramId(req), scope.organizationId);
+    const ok = await deleteCustomer(paramId(req), scope.organizationId, req.auth?.id);
     if (!ok) {
       res.status(404).json({ data: null, error: { message: "Customer not found" } });
       return;

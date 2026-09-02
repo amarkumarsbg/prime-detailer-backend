@@ -170,13 +170,14 @@ export async function getAppointment(organizationId: string, entityId: string) {
 export async function upsertAppointment(
   organizationId: string,
   entityId: string,
-  payload: unknown
+  payload: unknown,
+  ctx?: import("../collections/collection.dispatcher.js").CollectionWriteContext
 ): Promise<void> {
   const previous = await getCollectionItem("appointments", entityId, organizationId);
   const normalized = normalizeAppointmentPayload(payload, previous);
-  await upsertCollectionItem("appointments", entityId, normalized, organizationId);
+  await upsertCollectionItem("appointments", entityId, normalized, organizationId, ctx);
   await upsertAppointmentRow(organizationId, entityId, normalized);
-  await syncPickupDropRequest(organizationId, entityId, normalized, previous);
+  await syncPickupDropRequest(organizationId, entityId, normalized, previous, ctx);
 }
 
 /**
@@ -188,7 +189,8 @@ async function syncPickupDropRequest(
   organizationId: string,
   appointmentId: string,
   payload: unknown,
-  previous: unknown | null
+  previous: unknown | null,
+  ctx?: import("../collections/collection.dispatcher.js").CollectionWriteContext
 ): Promise<void> {
   const doc = asRecord(payload);
   if (!doc) return;
@@ -234,7 +236,7 @@ async function syncPickupDropRequest(
       // Prefer booking-level driver; fall back to whatever was already assigned on the P&D row
       driverId:   pickupDriverId   ?? asString(existingPickup?.driverId)   ?? null,
       driverName: pickupDriverName ?? asString(existingPickup?.driverName) ?? null,
-    }, organizationId);
+    }, organizationId, ctx);
 
     // 2. DROP OFF — return vehicle from workshop → customer address
     const existingDrop = await getCollectionItem("pickupDropRequests", dropId, organizationId) as Record<string, unknown> | null;
@@ -247,27 +249,28 @@ async function syncPickupDropRequest(
       vehiclePickupStatus: asString(existingDrop?.vehiclePickupStatus) ?? "PENDING",
       driverId:   dropDriverId   ?? asString(existingDrop?.driverId)   ?? null,
       driverName: dropDriverName ?? asString(existingDrop?.driverName) ?? null,
-    }, organizationId);
+    }, organizationId, ctx);
 
   } else if (pickupRequired === false) {
     // vehiclePickupRequired explicitly set to false — remove both P&D entries.
     const prevRequired = asBoolean(asRecord(previous)?.vehiclePickupRequired);
     if (prevRequired === true) {
-      await deleteCollectionItem("pickupDropRequests", pickupId, organizationId);
-      await deleteCollectionItem("pickupDropRequests", dropId, organizationId);
+      await deleteCollectionItem("pickupDropRequests", pickupId, organizationId, ctx);
+      await deleteCollectionItem("pickupDropRequests", dropId, organizationId, ctx);
     }
   }
 }
 
 export async function deleteAppointment(
   organizationId: string,
-  entityId: string
+  entityId: string,
+  ctx?: import("../collections/collection.dispatcher.js").CollectionWriteContext
 ): Promise<boolean> {
-  const deleted = await deleteCollectionItem("appointments", entityId, organizationId);
+  const deleted = await deleteCollectionItem("appointments", entityId, organizationId, ctx);
   if (!deleted) return false;
   // Remove both P&D entries if they exist.
-  await deleteCollectionItem("pickupDropRequests", `pnd-pickup-${entityId}`, organizationId);
-  await deleteCollectionItem("pickupDropRequests", `pnd-drop-${entityId}`, organizationId);
+  await deleteCollectionItem("pickupDropRequests", `pnd-pickup-${entityId}`, organizationId, ctx);
+  await deleteCollectionItem("pickupDropRequests", `pnd-drop-${entityId}`, organizationId, ctx);
   if (await hasAppointmentTable()) {
     try {
       await prisma.appointment.deleteMany({ where: { id: entityId, organizationId } });
@@ -281,7 +284,8 @@ export async function deleteAppointment(
 
 export async function replaceAppointments(
   organizationId: string,
-  items: { id: string }[]
+  items: { id: string }[],
+  ctx?: import("../collections/collection.dispatcher.js").CollectionWriteContext
 ): Promise<void> {
   const existingRaw = await listCollectionItems("appointments", { organizationId });
   const existing = Array.isArray(existingRaw) ? existingRaw : existingRaw.items;
@@ -298,7 +302,7 @@ export async function replaceAppointments(
     return normalizeAppointmentPayload(item, previous) as { id: string };
   });
 
-  await replaceCollectionArray("appointments", normalized, organizationId);
+  await replaceCollectionArray("appointments", normalized, organizationId, ctx);
   for (const item of normalized) {
     await upsertAppointmentRow(organizationId, item.id, item);
   }

@@ -348,7 +348,7 @@ export async function getPartyLedger(
   };
 }
 
-export type UpsertPartyInput = Partial<Party> & { name: string; kind: PartyKind };
+export type UpsertPartyInput = Partial<Party> & { name: string; kind: PartyKind; createdByUserId?: string; updatedByUserId?: string; };
 
 function resolvePartyId(id: string | null, input: UpsertPartyInput): string {
   if (id) return id;
@@ -385,6 +385,8 @@ export async function upsertParty(
     dateOfBirth: input.dateOfBirth?.trim() || null,
     customerId: input.customerId ?? existing?.customerId ?? null,
     vendorKey: input.vendorKey?.trim() || existing?.vendorKey || null,
+    createdByUserId: !existing ? input.createdByUserId : undefined,
+    updatedByUserId: input.updatedByUserId,
   };
 
   const shipping = input.shippingAddresses ?? existing?.shippingAddresses ?? [];
@@ -413,6 +415,8 @@ export async function upsertParty(
         dateOfBirth: data.dateOfBirth,
         customerId: data.customerId,
         vendorKey: data.vendorKey,
+        createdByUserId: data.createdByUserId ?? undefined,
+        updatedByUserId: data.updatedByUserId ?? undefined,
       },
     });
     await tx.partyShippingAddress.deleteMany({ where: { partyId } });
@@ -457,10 +461,23 @@ export async function upsertParty(
 
   const party = await getPartyById(partyId, organizationId);
   if (!party) throw new Error("Party upsert failed");
+
+  if (input.updatedByUserId || (!existing && input.createdByUserId)) {
+    const userId = input.updatedByUserId || input.createdByUserId;
+    if (userId) {
+      const { logBusinessActivity } = await import("../../services/activity-logger.service.js");
+      await logBusinessActivity({ organizationId, hasJobCardPricingPermission: false, userId }, {
+        action: existing ? "UPDATE_PARTY" : "CREATE_PARTY",
+        entityType: "PARTY",
+        entityId: party.id,
+      });
+    }
+  }
+
   return party;
 }
 
-export async function hideParty(id: string, organizationId: string): Promise<boolean> {
+export async function hideParty(id: string, organizationId: string, userId?: string): Promise<boolean> {
   const party = await getPartyById(id, organizationId);
   if (!party) return false;
   await prisma.partyHidden.upsert({
@@ -468,5 +485,15 @@ export async function hideParty(id: string, organizationId: string): Promise<boo
     create: { partyId: id },
     update: {},
   });
+
+  if (userId) {
+    const { logBusinessActivity } = await import("../../services/activity-logger.service.js");
+    await logBusinessActivity({ organizationId, hasJobCardPricingPermission: false, userId }, {
+      action: "DELETE_PARTY",
+      entityType: "PARTY",
+      entityId: id,
+    });
+  }
+
   return true;
 }

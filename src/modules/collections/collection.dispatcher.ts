@@ -24,6 +24,8 @@ import {
 export type CollectionWriteContext = {
   organizationId: string;
   hasJobCardPricingPermission: boolean;
+  userId?: string;
+  skipGenericActivityLog?: boolean;
 };
 
 export type CollectionDomainHandlers = {
@@ -34,7 +36,7 @@ export type CollectionDomainHandlers = {
   ) => Promise<unknown[] | { items: unknown[]; page: number; pageSize: number; total: number; totalPages: number }>;
   get: (organizationId: string, entityId: string) => Promise<unknown | null>;
   upsert: (entityId: string, payload: unknown, ctx: CollectionWriteContext) => Promise<void>;
-  delete: (organizationId: string, entityId: string) => Promise<boolean>;
+  delete: (organizationId: string, entityId: string, ctx?: CollectionWriteContext) => Promise<boolean>;
   replace: (items: { id: string }[], ctx: CollectionWriteContext) => Promise<void>;
 };
 
@@ -47,9 +49,9 @@ function asDocumentHandlers(collection: string): CollectionDomainHandlers {
   cached = {
     list: (orgId, allowed, opts) => doc.list(orgId, allowed, opts),
     get: (orgId, id) => doc.get(orgId, id),
-    upsert: (id, payload, ctx) => doc.upsert(ctx.organizationId, id, payload),
-    delete: (orgId, id) => doc.delete(orgId, id),
-    replace: (items, ctx) => doc.replace(ctx.organizationId, items),
+    upsert: (id, payload, ctx) => doc.upsert(ctx.organizationId, id, payload, ctx),
+    delete: (orgId, id, ctx) => doc.delete(orgId, id, ctx),
+    replace: (items, ctx) => doc.replace(ctx.organizationId, items, ctx),
   };
   documentCache.set(collection, cached);
   return cached;
@@ -62,12 +64,14 @@ export function getCollectionDomainHandlers(collection: string): CollectionDomai
       get: (orgId, id) => jobCards.getJobCard(orgId, id),
       upsert: (id, payload, ctx) =>
         jobCards.upsertJobCard(id, payload, {
+          ...ctx,
           organizationId: ctx.organizationId,
           hasPricingPermission: ctx.hasJobCardPricingPermission,
         }),
-      delete: (orgId, id) => jobCards.deleteJobCard(orgId, id),
+      delete: (orgId, id, ctx) => jobCards.deleteJobCard(orgId, id),
       replace: (items, ctx) =>
         jobCards.replaceJobCards(items, {
+          ...ctx,
           organizationId: ctx.organizationId,
           hasPricingPermission: ctx.hasJobCardPricingPermission,
         }),
@@ -77,27 +81,27 @@ export function getCollectionDomainHandlers(collection: string): CollectionDomai
     return {
       list: (orgId, allowed, opts) => invoices.listInvoices(orgId, allowed, opts),
       get: (orgId, id) => invoices.getInvoice(orgId, id),
-      upsert: (id, payload, ctx) => invoices.upsertInvoice(ctx.organizationId, id, payload),
-      delete: (orgId, id) => invoices.deleteInvoice(orgId, id),
-      replace: (items, ctx) => invoices.replaceInvoices(ctx.organizationId, items),
+      upsert: (id, payload, ctx) => invoices.upsertInvoice(ctx.organizationId, id, payload, ctx),
+      delete: (orgId, id, ctx) => invoices.deleteInvoice(orgId, id, ctx),
+      replace: (items, ctx) => invoices.replaceInvoices(ctx.organizationId, items, ctx),
     };
   }
   if (collection === "quotations") {
     return {
       list: (orgId, allowed, opts) => quotations.listQuotations(orgId, allowed, opts),
       get: (orgId, id) => quotations.getQuotation(orgId, id),
-      upsert: (id, payload, ctx) => quotations.upsertQuotation(ctx.organizationId, id, payload),
-      delete: (orgId, id) => quotations.deleteQuotation(orgId, id),
-      replace: (items, ctx) => quotations.replaceQuotations(ctx.organizationId, items),
+      upsert: (id, payload, ctx) => quotations.upsertQuotation(ctx.organizationId, id, payload, ctx),
+      delete: (orgId, id, ctx) => quotations.deleteQuotation(orgId, id, ctx),
+      replace: (items, ctx) => quotations.replaceQuotations(ctx.organizationId, items, ctx),
     };
   }
   if (collection === "appointments") {
     return {
       list: (orgId, allowed, opts) => appointments.listAppointments(orgId, allowed, opts),
       get: (orgId, id) => appointments.getAppointment(orgId, id),
-      upsert: (id, payload, ctx) => appointments.upsertAppointment(ctx.organizationId, id, payload),
-      delete: (orgId, id) => appointments.deleteAppointment(orgId, id),
-      replace: (items, ctx) => appointments.replaceAppointments(ctx.organizationId, items),
+      upsert: (id, payload, ctx) => appointments.upsertAppointment(ctx.organizationId, id, payload, ctx),
+      delete: (orgId, id, ctx) => appointments.deleteAppointment(orgId, id, ctx),
+      replace: (items, ctx) => appointments.replaceAppointments(ctx.organizationId, items, ctx),
     };
   }
   if (collection === "expenseMeta") {

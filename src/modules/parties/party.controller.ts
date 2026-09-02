@@ -136,7 +136,11 @@ export async function postParty(req: Request, res: Response, next: NextFunction)
       return;
     }
     const body = upsertSchema.parse(req.body);
-    const party = await upsertParty(null, scope.organizationId, body as UpsertPartyInput);
+    const party = await upsertParty(null, scope.organizationId, {
+      ...(body as UpsertPartyInput),
+      createdByUserId: req.auth?.id,
+      updatedByUserId: req.auth?.id,
+    });
     res.status(201).json({ data: { party }, error: null });
   } catch (e) {
     next(e);
@@ -151,7 +155,10 @@ export async function putParty(req: Request, res: Response, next: NextFunction) 
       return;
     }
     const body = upsertSchema.parse(req.body);
-    const party = await upsertParty(paramId(req), scope.organizationId, body as UpsertPartyInput);
+    const party = await upsertParty(paramId(req), scope.organizationId, {
+      ...(body as UpsertPartyInput),
+      updatedByUserId: req.auth?.id,
+    });
     res.json({ data: { party }, error: null });
   } catch (e) {
     next(e);
@@ -170,7 +177,7 @@ export async function removeParty(req: Request, res: Response, next: NextFunctio
       res.status(404).json({ data: null, error: { message: "Party not found" } });
       return;
     }
-    const ok = await hideParty(paramId(req), scope.organizationId);
+    const ok = await hideParty(paramId(req), scope.organizationId, req.auth?.id);
     if (!ok) {
       res.status(404).json({ data: null, error: { message: "Party not found" } });
       return;

@@ -200,22 +200,35 @@ export async function upsertCollectionItem(
   collection: string,
   entityId: string,
   payload: unknown,
-  organizationId: string
+  organizationId: string,
+  ctx?: import("./collection.dispatcher.js").CollectionWriteContext
 ): Promise<void> {
   assertCollectionWriteAllowed(collection);
 
   const existing = await prisma.appJsonRow.findUnique({
     where: { collection_entityId: { collection, entityId } },
-    select: { organizationId: true },
+    select: { organizationId: true, payload: true },
   });
   if (existing && existing.organizationId !== organizationId) {
     throw AppError.conflict("Document id already exists in another organization");
   }
 
+  // Auto-inject user tracking
+  const pObj = (payload && typeof payload === "object") ? { ...payload } as Record<string, unknown> : {};
+  if (ctx?.userId) {
+    if (!existing) {
+      pObj.createdByUserId = ctx.userId;
+    } else {
+      const eObj = (existing.payload && typeof existing.payload === "object") ? existing.payload as Record<string, unknown> : {};
+      if (eObj.createdByUserId) pObj.createdByUserId = eObj.createdByUserId;
+    }
+    pObj.updatedByUserId = ctx.userId;
+  }
+
   // Extract createdAt from payload for correct ordering. Fall back to now() for new rows.
   let createdAt: Date | undefined;
-  if (!existing && payload && typeof payload === "object") {
-    const raw = (payload as Record<string, unknown>).createdAt;
+  if (!existing) {
+    const raw = pObj.createdAt;
     if (typeof raw === "string" && raw) {
       const t = new Date(raw);
       if (!isNaN(t.getTime())) createdAt = t;
@@ -228,17 +241,28 @@ export async function upsertCollectionItem(
       collection,
       entityId,
       organizationId,
-      payload: payload as object,
+      payload: pObj as import("@prisma/client").Prisma.InputJsonObject,
       ...(createdAt ? { createdAt } : {}),
     },
-    update: { payload: payload as object, organizationId },
+    update: { payload: pObj as import("@prisma/client").Prisma.InputJsonObject, organizationId },
   });
+
+  // Generic activity log (skip if activityLogs collection itself or if explicitly bypassed)
+  if (ctx && ctx.userId && collection !== "activityLogs" && !ctx.skipGenericActivityLog) {
+    const { logBusinessActivity } = await import("../../services/activity-logger.service.js");
+    await logBusinessActivity(ctx, {
+      action: existing ? `UPDATE_${collection.toUpperCase()}` : `CREATE_${collection.toUpperCase()}`,
+      entityType: collection,
+      entityId,
+    });
+  }
 }
 
 export async function deleteCollectionItem(
   collection: string,
   entityId: string,
-  organizationId: string
+  organizationId: string,
+  ctx?: import("./collection.dispatcher.js").CollectionWriteContext
 ): Promise<boolean> {
   const existing = await prisma.appJsonRow.findUnique({
     where: { collection_entityId: { collection, entityId } },
@@ -250,6 +274,16 @@ export async function deleteCollectionItem(
     await prisma.appJsonRow.delete({
       where: { collection_entityId: { collection, entityId } },
     });
+    
+    if (ctx && ctx.userId && collection !== "activityLogs" && !ctx.skipGenericActivityLog) {
+      const { logBusinessActivity } = await import("../../services/activity-logger.service.js");
+      await logBusinessActivity(ctx, {
+        action: `DELETE_${collection.toUpperCase()}`,
+        entityType: collection,
+        entityId,
+      });
+    }
+    
     return true;
   } catch {
     return false;
@@ -259,7 +293,8 @@ export async function deleteCollectionItem(
 export async function replaceCollectionArray(
   collection: string,
   items: { id: string }[],
-  organizationId: string
+  organizationId: string,
+  ctx?: import("./collection.dispatcher.js").CollectionWriteContext
 ): Promise<void> {
   assertCollectionWriteAllowed(collection);
 
@@ -297,12 +332,37 @@ export async function replaceCollectionArray(
   await prisma.$transaction(
     async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`appJsonRow:${organizationId}:${collection}`}))`;
+      // Fetch existing rows to map createdByUserId across wipe
+      const existingRows = await tx.appJsonRow.findMany({
+        where: { collection, organizationId },
+        select: { entityId: true, payload: true },
+      });
+      const createdByMap = new Map<string, string>();
+      for (const row of existingRows) {
+        if (row.payload && typeof row.payload === "object") {
+          const cb = (row.payload as Record<string, unknown>).createdByUserId;
+          if (typeof cb === "string") createdByMap.set(row.entityId, cb);
+        }
+      }
+
       await tx.appJsonRow.deleteMany({ where: { collection, organizationId } });
       if (uniqueItems.length === 0) return;
       await tx.appJsonRow.createMany({
         data: uniqueItems.map((item) => {
+          const pObj = { ...item } as Record<string, unknown>;
+          
+          if (ctx?.userId) {
+            const existingCb = createdByMap.get(item.id);
+            pObj.createdByUserId = existingCb || ctx.userId;
+            pObj.updatedByUserId = ctx.userId;
+          } else {
+            // Restore even if ctx.userId is missing (e.g. system sync)
+            const existingCb = createdByMap.get(item.id);
+            if (existingCb) pObj.createdByUserId = existingCb;
+          }
+
           let createdAt: Date | undefined;
-          const raw = (item as Record<string, unknown>).createdAt;
+          const raw = pObj.createdAt;
           if (typeof raw === "string" && raw) {
             const t = new Date(raw);
             if (!isNaN(t.getTime())) createdAt = t;
@@ -311,12 +371,21 @@ export async function replaceCollectionArray(
             collection,
             entityId: item.id,
             organizationId,
-            payload: item as object,
+            payload: pObj as import("@prisma/client").Prisma.InputJsonObject,
             ...(createdAt ? { createdAt } : {}),
           };
         }),
         skipDuplicates: true,
       });
+      
+      if (ctx && ctx.userId && collection !== "activityLogs" && !ctx.skipGenericActivityLog) {
+        const { logBusinessActivity } = await import("../../services/activity-logger.service.js");
+        await logBusinessActivity(ctx, {
+          action: `REPLACE_${collection.toUpperCase()}`,
+          entityType: collection,
+          entityId: "BULK",
+        });
+      }
     },
     { timeout: 30_000 }
   );
@@ -325,10 +394,11 @@ export async function replaceCollectionArray(
 export async function upsertSingleton(
   collection: string,
   payload: unknown,
-  organizationId: string
+  organizationId: string,
+  ctx?: import("./collection.dispatcher.js").CollectionWriteContext
 ): Promise<void> {
   if (!isSingletonCollection(collection)) {
     throw new Error("Not a singleton collection");
   }
-  await upsertCollectionItem(collection, SINGLETON_ENTITY_ID, payload, organizationId);
+  await upsertCollectionItem(collection, SINGLETON_ENTITY_ID, payload, organizationId, ctx);
 }

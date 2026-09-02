@@ -72,7 +72,7 @@ function writeContext(req: Request, organizationId: string): CollectionWriteCont
     req.auth &&
       (req.auth.role === "SUPER_ADMIN" || req.auth.permissions?.includes("JOB_CARD_PRICING"))
   );
-  return { organizationId, hasJobCardPricingPermission };
+  return { organizationId, hasJobCardPricingPermission, userId: req.auth?.id };
 }
 
 export async function getCollection(req: Request, res: Response, next: NextFunction) {
@@ -166,7 +166,8 @@ export async function postSnapshot(req: Request, res: Response, next: NextFuncti
     const items = parseCollectionSnapshotItems(collection, body.items);
 
     const domain = getCollectionDomainHandlers(collection);
-    await domain.replace(items, writeContext(req, scope.organizationId));
+    const ctx = writeContext(req, scope.organizationId);
+    await domain.replace(items, ctx);
     res.json({ data: { ok: true }, error: null });
   } catch (e) {
     next(e);
@@ -206,7 +207,8 @@ export async function putCollectionItem(req: Request, res: Response, next: NextF
     assertPayloadEntityIdMatch(collection, entityId, payload);
 
     const domain = getCollectionDomainHandlers(collection);
-    await domain.upsert(entityId, payload, writeContext(req, scope.organizationId));
+    const ctx = writeContext(req, scope.organizationId);
+    await domain.upsert(entityId, payload, ctx);
     res.json({ data: { ok: true }, error: null });
   } catch (e) {
     next(e);
@@ -232,7 +234,8 @@ export async function deleteCollectionRow(req: Request, res: Response, next: Nex
       return;
     }
     const domain = getCollectionDomainHandlers(collection);
-    const ok = await domain.delete(scope.organizationId, entityId);
+    const ctx = writeContext(req, scope.organizationId);
+    const ok = await domain.delete(scope.organizationId, entityId, ctx);
     if (!ok) {
       res.status(404).json({ data: null, error: { message: "Not found" } });
       return;

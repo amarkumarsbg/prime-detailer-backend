@@ -88,6 +88,8 @@ export async function postJobCardsSnapshot(req: Request, res: Response, next: Ne
     await replaceJobCards(items, {
       organizationId: org.organizationId,
       hasPricingPermission: hasJobCardPricingPermission(req),
+      hasJobCardPricingPermission: hasJobCardPricingPermission(req),
+      userId: req.auth?.id,
     });
     res.json({ data: { ok: true }, error: null });
   } catch (e) {
@@ -108,6 +110,8 @@ export async function putJobCard(req: Request, res: Response, next: NextFunction
     await upsertJobCard(entityId, payload, {
       organizationId: org.organizationId,
       hasPricingPermission: hasJobCardPricingPermission(req),
+      hasJobCardPricingPermission: hasJobCardPricingPermission(req),
+      userId: req.auth?.id,
     });
     res.json({ data: { ok: true }, error: null });
   } catch (e) {

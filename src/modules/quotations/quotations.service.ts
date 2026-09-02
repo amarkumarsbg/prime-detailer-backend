@@ -25,23 +25,26 @@ export async function getQuotation(organizationId: string, entityId: string) {
 export async function upsertQuotation(
   organizationId: string,
   entityId: string,
-  payload: unknown
+  payload: unknown,
+  ctx?: import("../collections/collection.dispatcher.js").CollectionWriteContext
 ): Promise<void> {
-  await upsertCollectionItem("quotations", entityId, payload, organizationId);
+  await upsertCollectionItem("quotations", entityId, payload, organizationId, ctx);
 }
 
 export async function deleteQuotation(
   organizationId: string,
-  entityId: string
+  entityId: string,
+  ctx?: import("../collections/collection.dispatcher.js").CollectionWriteContext
 ): Promise<boolean> {
-  return deleteCollectionItem("quotations", entityId, organizationId);
+  return deleteCollectionItem("quotations", entityId, organizationId, ctx);
 }
 
 export async function replaceQuotations(
   organizationId: string,
-  items: { id: string }[]
+  items: { id: string }[],
+  ctx?: import("../collections/collection.dispatcher.js").CollectionWriteContext
 ): Promise<void> {
-  await replaceCollectionArray("quotations", items, organizationId);
+  await replaceCollectionArray("quotations", items, organizationId, ctx);
 }
 
 export { convertQuotationToJob } from "./quotation-convert.service.js";

@@ -16,7 +16,9 @@ import {
   deleteCollectionItem,
 } from "../collections/app-json-store.js";
 
-export type JobCardWriteContext = {
+import type { CollectionWriteContext } from "../collections/collection.dispatcher.js";
+
+export type JobCardWriteContext = CollectionWriteContext & {
   organizationId: string;
   hasPricingPermission: boolean;
 };
@@ -78,7 +80,25 @@ export async function upsertJobCard(
 ): Promise<void> {
   const prev = await getCollectionItem("jobCards", entityId, ctx.organizationId);
   await assertJobCardPricingAllowed(ctx.organizationId, prev, payload, ctx);
-  await upsertCollectionItem("jobCards", entityId, payload, ctx.organizationId);
+  
+  let didChangeStatus = false;
+  if (prev && typeof prev === "object" && payload && typeof payload === "object") {
+    const pStatus = (prev as Record<string, unknown>).status;
+    const nStatus = (payload as Record<string, unknown>).status;
+    if (pStatus !== nStatus && ctx.userId) {
+      didChangeStatus = true;
+      const { logBusinessActivity } = await import("../../services/activity-logger.service.js");
+      await logBusinessActivity(ctx, {
+        action: "UPDATE_JOB_CARD_STATUS",
+        entityType: "jobCards",
+        entityId,
+        details: { oldStatus: pStatus, newStatus: nStatus }
+      });
+    }
+  }
+
+  const writeCtx = didChangeStatus ? { ...ctx, skipGenericActivityLog: true } : ctx;
+  await upsertCollectionItem("jobCards", entityId, payload, ctx.organizationId, writeCtx);
 }
 
 export async function replaceJobCards(

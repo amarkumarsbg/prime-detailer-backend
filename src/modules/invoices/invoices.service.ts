@@ -109,23 +109,25 @@ export async function getInvoice(organizationId: string, entityId: string) {
 export async function upsertInvoice(
   organizationId: string,
   entityId: string,
-  payload: unknown
+  payload: unknown,
+  ctx?: import("../collections/collection.dispatcher.js").CollectionWriteContext
 ): Promise<void> {
   const previous = await getCollectionItem("invoices", entityId, organizationId);
   const gstStatus = await getOrgGstRegistrationStatus(organizationId);
   const guarded = applyInvoiceGstGuard(payload, previous, gstStatus);
   await applyInvoiceReferralGuard(organizationId, guarded, previous);
   await handleInvoiceWalletSync(organizationId, entityId, guarded);
-  await upsertCollectionItem("invoices", entityId, guarded, organizationId);
+  await upsertCollectionItem("invoices", entityId, guarded, organizationId, ctx);
 }
 
-export async function deleteInvoice(organizationId: string, entityId: string): Promise<boolean> {
-  return deleteCollectionItem("invoices", entityId, organizationId);
+export async function deleteInvoice(organizationId: string, entityId: string, ctx?: import("../collections/collection.dispatcher.js").CollectionWriteContext): Promise<boolean> {
+  return deleteCollectionItem("invoices", entityId, organizationId, ctx);
 }
 
 export async function replaceInvoices(
   organizationId: string,
-  items: { id: string }[]
+  items: { id: string }[],
+  ctx?: import("../collections/collection.dispatcher.js").CollectionWriteContext
 ): Promise<void> {
   const gstStatus = await getOrgGstRegistrationStatus(organizationId);
   const existingRaw = await listCollectionItems("invoices", { organizationId });
@@ -148,5 +150,5 @@ export async function replaceInvoices(
     await applyInvoiceReferralGuard(organizationId, gstGuarded, prev);
     guarded.push(gstGuarded);
   }
-  await replaceCollectionArray("invoices", guarded, organizationId);
+  await replaceCollectionArray("invoices", guarded, organizationId, ctx);
 }

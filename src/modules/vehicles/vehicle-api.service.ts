@@ -89,6 +89,8 @@ export async function createVehicleApi(data: {
   insuranceDueDate?: string | null;
   vinNumber?: string | null;
   previousOwners?: unknown;
+  createdByUserId?: string;
+  updatedByUserId?: string;
 }) {
   const customer = await prisma.customer.findFirst({
     where: { id: data.customerId, organizationId: data.organizationId },
@@ -117,8 +119,20 @@ export async function createVehicleApi(data: {
       insuranceDueDate: data.insuranceDueDate ?? null,
       vinNumber: data.vinNumber ?? null,
       previousOwners: data.previousOwners ? (data.previousOwners as object) : undefined,
+      createdByUserId: data.createdByUserId || null,
+      updatedByUserId: data.updatedByUserId || null,
     },
   });
+
+  if (data.createdByUserId) {
+    const { logBusinessActivity } = await import("../../services/activity-logger.service.js");
+    await logBusinessActivity({ organizationId: data.organizationId, hasJobCardPricingPermission: false, userId: data.createdByUserId }, {
+      action: "CREATE_VEHICLE",
+      entityType: "VEHICLE",
+      entityId: data.id,
+    });
+  }
+
   return toApiVehicle(row);
 }
 
@@ -143,6 +157,7 @@ export async function updateVehicleApi(
     insuranceDueDate: string | null;
     vinNumber: string | null;
     previousOwners: unknown;
+    updatedByUserId: string;
   }>
 ): Promise<ReturnType<typeof toApiVehicle> | null> {
   try {
@@ -156,17 +171,37 @@ export async function updateVehicleApi(
       where: { id },
       data: data as Parameters<typeof prisma.vehicle.update>[0]["data"],
     });
+
+    if (patch.updatedByUserId) {
+      const { logBusinessActivity } = await import("../../services/activity-logger.service.js");
+      await logBusinessActivity({ organizationId, hasJobCardPricingPermission: false, userId: patch.updatedByUserId }, {
+        action: "UPDATE_VEHICLE",
+        entityType: "VEHICLE",
+        entityId: id,
+      });
+    }
+
     return toApiVehicle(row);
   } catch {
     return null;
   }
 }
 
-export async function deleteVehicleApi(id: string, organizationId: string): Promise<boolean> {
+export async function deleteVehicleApi(id: string, organizationId: string, userId?: string): Promise<boolean> {
   try {
     const owned = await prisma.vehicle.findFirst({ where: { id, organizationId } });
     if (!owned) return false;
     await prisma.vehicle.delete({ where: { id } });
+
+    if (userId) {
+      const { logBusinessActivity } = await import("../../services/activity-logger.service.js");
+      await logBusinessActivity({ organizationId, hasJobCardPricingPermission: false, userId }, {
+        action: "DELETE_VEHICLE",
+        entityType: "VEHICLE",
+        entityId: id,
+      });
+    }
+
     return true;
   } catch {
     return false;

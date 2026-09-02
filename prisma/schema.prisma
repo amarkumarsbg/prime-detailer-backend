@@ -243,6 +243,9 @@ model Branch {
   users             User[]
   attendanceRecords Attendance[]
 
+  createdByUserId   String?
+  updatedByUserId   String?
+
   @@index([organizationId])
 }
 
@@ -305,6 +308,9 @@ model User {
   lastLoginAt            DateTime?
   attendanceRecords      Attendance[]
 
+  createdByUserId        String?
+  updatedByUserId        String?
+
   @@index([organizationId])
 }
 
@@ -350,6 +356,9 @@ model Customer {
    */
   lastLoginAt        DateTime?
 
+  createdByUserId    String?
+  updatedByUserId    String?
+
   @@index([organizationId])
   @@index([referralCode])
 }
@@ -376,6 +385,9 @@ model Vehicle {
   previousOwners        Json?
   organizationId        String
   organization          Organization   @relation(fields: [organizationId], references: [id])
+
+  createdByUserId       String?
+  updatedByUserId       String?
 
   @@index([organizationId])
   @@index([customerId])
@@ -445,6 +457,9 @@ model Party {
   shippingAddresses  PartyShippingAddress[]
   bankAccounts       PartyBankAccount[]
   customFields       PartyCustomField[]
+
+  createdByUserId    String?
+  updatedByUserId    String?
 
   @@index([kind])
   @@index([vendorKey])
@@ -532,6 +547,9 @@ model Appointment {
   payload               Json?
   createdAt             DateTime     @default(now())
   updatedAt             DateTime     @updatedAt
+
+  createdByUserId       String?
+  updatedByUserId       String?
 
   @@index([organizationId, date])
   @@index([organizationId, branchId])
