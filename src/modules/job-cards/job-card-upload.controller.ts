@@ -44,7 +44,15 @@ export async function postJobCardInspectionPhoto(req: Request, res: Response, ne
       return;
     }
 
+    if (!req.auth.organizationId) {
+      res.status(403).json({
+        data: null,
+        error: { message: "Organization not found on user", code: "ORG_MISSING" },
+      });
+      return;
+    }
     const url = await persistJobInspectionPhoto({
+      organizationId: req.auth.organizationId,
       jobCardId,
       kind: typeParsed.data === "BEFORE" ? "before" : "after",
       photoId,

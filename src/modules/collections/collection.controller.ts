@@ -93,6 +93,8 @@ export async function getCollection(req: Request, res: Response, next: NextFunct
       res.json({ data: { items: [] }, error: null });
       return;
     }
+    const { enforceExportLockIfRequested } = await import("../../lib/export-lock.js");
+    await enforceExportLockIfRequested(scope.organizationId, req);
     const q = typeof req.query.branchId === "string" ? req.query.branchId : undefined;
     const allowedBranchIds = intersectQueryBranchId(scope, q);
 
@@ -257,7 +259,15 @@ export async function postAppSettingsLogo(req: Request, res: Response, next: Nex
       res.status(400).json({ data: null, error: { message: "No image file provided." } });
       return;
     }
+    if (!req.auth.organizationId) {
+      res.status(403).json({
+        data: null,
+        error: { message: "Organization not found on user", code: "ORG_MISSING" },
+      });
+      return;
+    }
     const url = await persistBusinessLogoFile({
+      organizationId: req.auth.organizationId,
       buffer: file.buffer,
       mimeType: file.mimetype,
       uploadedBy: req.auth.id,

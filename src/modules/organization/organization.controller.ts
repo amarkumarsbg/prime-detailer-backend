@@ -23,6 +23,17 @@ import {
   createSubscriptionCheckout,
   getBillingGatewayStatus,
 } from "../billing/subscription-checkout.service.js";
+import {
+  loadOrgMessagingSettings,
+  redactMessagingSettings,
+  resolveOrgMessagingCredentials,
+  saveOrgMessagingSettings,
+} from "../../lib/org-messaging-credentials.js";
+import { listCustomers } from "../customers/customer.service.js";
+import { listCollectionItems } from "../collections/app-json-store.js";
+import { isArrayCollection } from "../../constants/json-collections.js";
+import { assertCanExportData } from "../../lib/export-lock.js";
+import { orgStorageKeyPrefix } from "../../lib/org-storage-key.js";
 
 async function resolveOrgId(req: Request): Promise<string | undefined> {
   if (req.auth?.organizationId) return req.auth.organizationId;
@@ -173,6 +184,155 @@ export async function getStudioBillingGatewayStatus(
       throw new AppHttpError(403, "Organization not found on user", "ORG_MISSING");
     }
     res.json({ data: getBillingGatewayStatus(), error: null });
+  } catch (e) {
+    next(e);
+  }
+}
+
+/** GET /api/organization/export/check */
+export async function getStudioExportCheck(req: Request, res: Response, next: NextFunction) {
+  try {
+    const orgId = await resolveOrgId(req);
+    if (!orgId) {
+      throw new AppHttpError(403, "Organization not found on user", "ORG_MISSING");
+    }
+    const entitlement = await getEntitlementForOrg(orgId);
+    if (!entitlement) {
+      throw new AppHttpError(404, "Subscription not found", "SUBSCRIPTION_MISSING");
+    }
+    res.json({
+      data: {
+        canExportData: entitlement.canExportData,
+        exportLocked: entitlement.subscription.exportLocked,
+        graceOrLock: entitlement.subscription.graceOrLock,
+        daysRemaining: entitlement.subscription.daysRemaining,
+        expiresAt: entitlement.subscription.expiresAt,
+        storageKeyPrefix: orgStorageKeyPrefix(orgId),
+      },
+      error: null,
+    });
+  } catch (e) {
+    next(e);
+  }
+}
+
+/** POST /api/organization/export/customers — bulk customer dump (export-lock enforced) */
+export async function postStudioExportCustomers(req: Request, res: Response, next: NextFunction) {
+  try {
+    const orgId = await resolveOrgId(req);
+    if (!orgId) {
+      throw new AppHttpError(403, "Organization not found on user", "ORG_MISSING");
+    }
+    await assertCanExportData(orgId);
+    const customers = await listCustomers({ organizationId: orgId });
+    res.json({
+      data: {
+        exportedAt: new Date().toISOString(),
+        customers: Array.isArray(customers) ? customers : customers.items,
+      },
+      error: null,
+    });
+  } catch (e) {
+    next(e);
+  }
+}
+
+/** POST /api/organization/export/collections/:collection */
+export async function postStudioExportCollection(req: Request, res: Response, next: NextFunction) {
+  try {
+    const orgId = await resolveOrgId(req);
+    if (!orgId) {
+      throw new AppHttpError(403, "Organization not found on user", "ORG_MISSING");
+    }
+    await assertCanExportData(orgId);
+    const raw = req.params.collection;
+    const collection = Array.isArray(raw) ? raw[0]! : raw!;
+    if (!isArrayCollection(collection)) {
+      throw new AppHttpError(400, "Unknown or non-exportable collection.", "VALIDATION");
+    }
+    const items = await listCollectionItems(collection, { organizationId: orgId });
+    res.json({
+      data: {
+        collection,
+        exportedAt: new Date().toISOString(),
+        items: Array.isArray(items) ? items : (items as { items: unknown[] }).items,
+      },
+      error: null,
+    });
+  } catch (e) {
+    next(e);
+  }
+}
+
+/** GET /api/organization/messaging-settings */
+export async function getStudioMessagingSettings(req: Request, res: Response, next: NextFunction) {
+  try {
+    const orgId = await resolveOrgId(req);
+    if (!orgId) {
+      throw new AppHttpError(403, "Organization not found on user", "ORG_MISSING");
+    }
+    const settings = await loadOrgMessagingSettings(orgId);
+    const resolved = await resolveOrgMessagingCredentials(orgId);
+    res.json({
+      data: {
+        settings: redactMessagingSettings(settings),
+        resolved: {
+          source: resolved.source,
+          smsEnabled: resolved.smsEnabled,
+          whatsappEnabled: resolved.whatsappEnabled,
+          emailEnabled: resolved.emailEnabled,
+          hasOrgOverrides: resolved.hasOrgOverrides,
+          twilioFromNumber: resolved.twilioFromNumber,
+          twilioWhatsappFrom: resolved.twilioWhatsappFrom,
+          mailFrom: resolved.mailFrom,
+        },
+      },
+      error: null,
+    });
+  } catch (e) {
+    next(e);
+  }
+}
+
+const messagingSettingsPatchSchema = z.object({
+  twilioAccountSid: z.string().max(64).nullable().optional(),
+  twilioAuthToken: z.string().max(128).nullable().optional(),
+  twilioApiKeySid: z.string().max(64).nullable().optional(),
+  twilioApiKeySecret: z.string().max(128).nullable().optional(),
+  twilioFromNumber: z.string().max(32).nullable().optional(),
+  twilioWhatsappFrom: z.string().max(48).nullable().optional(),
+  twilioToNumberPrefix: z.string().max(8).nullable().optional(),
+  resendApiKey: z.string().max(128).nullable().optional(),
+  mailFrom: z.string().max(200).nullable().optional(),
+});
+
+/** PATCH /api/organization/messaging-settings — SUPER_ADMIN / ADMIN only via route permission */
+export async function patchStudioMessagingSettings(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const orgId = await resolveOrgId(req);
+    if (!orgId) {
+      throw new AppHttpError(403, "Organization not found on user", "ORG_MISSING");
+    }
+    const body = messagingSettingsPatchSchema.parse(req.body ?? {});
+    const saved = await saveOrgMessagingSettings(orgId, body);
+    const resolved = await resolveOrgMessagingCredentials(orgId);
+    res.json({
+      data: {
+        settings: redactMessagingSettings(saved),
+        resolved: {
+          source: resolved.source,
+          smsEnabled: resolved.smsEnabled,
+          whatsappEnabled: resolved.whatsappEnabled,
+          emailEnabled: resolved.emailEnabled,
+          hasOrgOverrides: resolved.hasOrgOverrides,
+        },
+      },
+      error: null,
+    });
   } catch (e) {
     next(e);
   }

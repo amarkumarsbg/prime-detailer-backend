@@ -11,6 +11,15 @@ import {
 import { isResendConfigured, sendViaResend } from "../services/resend-send.js";
 import { prisma } from "../lib/prisma.js";
 import { upsertCollectionItem } from "../services/collection.service.js";
+import { resolveOrgMessagingCredentials } from "../lib/org-messaging-credentials.js";
+
+async function resolveMessagingForRequest(req: Request) {
+  const orgId = req.auth?.organizationId;
+  if (!orgId) {
+    return null;
+  }
+  return resolveOrgMessagingCredentials(orgId);
+}
 
 async function logMessage(params: {
   type: "whatsapp" | "email" | "sms";
@@ -101,7 +110,9 @@ const postTransactionalEmailSchema = z.object({
 export async function postTransactionalEmail(req: Request, res: Response, next: NextFunction) {
   try {
     const body = postTransactionalEmailSchema.parse(req.body);
-    if (!isResendConfigured()) {
+    const creds = await resolveMessagingForRequest(req);
+    const emailEnabled = creds ? creds.emailEnabled : isResendConfigured();
+    if (!emailEnabled) {
       res.status(503).json({
         data: null,
         error: {
@@ -118,6 +129,8 @@ export async function postTransactionalEmail(req: Request, res: Response, next: 
       html: body.html,
       text: body.text,
       attachments: body.attachments,
+      apiKey: creds?.resendApiKey,
+      mailFrom: creds?.mailFrom,
     });
     if (!out.ok) {
       const msgLog = await logMessage({
@@ -155,7 +168,9 @@ export async function postTransactionalEmail(req: Request, res: Response, next: 
 export async function postWhatsApp(req: Request, res: Response, next: NextFunction) {
   try {
     const body = postWhatsAppSchema.parse(req.body);
-    if (!isTwilioWhatsAppEnabled()) {
+    const creds = await resolveMessagingForRequest(req);
+    const waEnabled = creds ? creds.whatsappEnabled : isTwilioWhatsAppEnabled();
+    if (!waEnabled) {
       res.status(503).json({
         data: null,
         error: {
@@ -170,14 +185,28 @@ export async function postWhatsApp(req: Request, res: Response, next: NextFuncti
     if (!bodyText && body.contentSid) {
       bodyText = `Template: ${body.contentSid} with variables: ${JSON.stringify(body.contentVariables || {})}`;
     }
+    const override = creds?.hasOrgOverrides
+      ? {
+          twilioAccountSid: creds.twilioAccountSid,
+          twilioAuthToken: creds.twilioAuthToken,
+          twilioApiKeySid: creds.twilioApiKeySid,
+          twilioApiKeySecret: creds.twilioApiKeySecret,
+          twilioFromNumber: creds.twilioFromNumber,
+          twilioWhatsappFrom: creds.twilioWhatsappFrom,
+        }
+      : undefined;
     try {
       if (body.message) {
-        await sendWhatsAppMessage(body.phone, body.message);
+        await sendWhatsAppMessage(body.phone, body.message, override);
       } else {
-        await sendWhatsAppMessage(body.phone, {
-          contentSid: body.contentSid!,
-          contentVariables: body.contentVariables,
-        });
+        await sendWhatsAppMessage(
+          body.phone,
+          {
+            contentSid: body.contentSid!,
+            contentVariables: body.contentVariables,
+          },
+          override
+        );
       }
       const msgLog = await logMessage({
       organizationId: req.auth?.organizationId,
@@ -223,7 +252,9 @@ const TEST_WHATSAPP_BODY =
 export async function postSmsTest(req: Request, res: Response, next: NextFunction) {
   try {
     const { phone } = testPhoneSchema.parse(req.body);
-    if (!isTwilioSmsEnabled()) {
+    const creds = await resolveMessagingForRequest(req);
+    const smsEnabled = creds ? creds.smsEnabled : isTwilioSmsEnabled();
+    if (!smsEnabled) {
       res.status(503).json({
         data: null,
         error: {
@@ -235,8 +266,18 @@ export async function postSmsTest(req: Request, res: Response, next: NextFunctio
       return;
     }
     const to = normalizePhoneToE164(phone);
+    const override = creds?.hasOrgOverrides
+      ? {
+          twilioAccountSid: creds.twilioAccountSid,
+          twilioAuthToken: creds.twilioAuthToken,
+          twilioApiKeySid: creds.twilioApiKeySid,
+          twilioApiKeySecret: creds.twilioApiKeySecret,
+          twilioFromNumber: creds.twilioFromNumber,
+          twilioWhatsappFrom: creds.twilioWhatsappFrom,
+        }
+      : undefined;
     try {
-      await sendTransactionalSms(to, TEST_SMS_BODY);
+      await sendTransactionalSms(to, TEST_SMS_BODY, override);
       const msgLog = await logMessage({
       organizationId: req.auth?.organizationId,
         type: "sms",
@@ -271,7 +312,9 @@ export async function postSmsTest(req: Request, res: Response, next: NextFunctio
 export async function postWhatsAppTest(req: Request, res: Response, next: NextFunction) {
   try {
     const { phone } = testPhoneSchema.parse(req.body);
-    if (!isTwilioWhatsAppEnabled()) {
+    const creds = await resolveMessagingForRequest(req);
+    const waEnabled = creds ? creds.whatsappEnabled : isTwilioWhatsAppEnabled();
+    if (!waEnabled) {
       res.status(503).json({
         data: null,
         error: {
@@ -282,8 +325,18 @@ export async function postWhatsAppTest(req: Request, res: Response, next: NextFu
       });
       return;
     }
+    const override = creds?.hasOrgOverrides
+      ? {
+          twilioAccountSid: creds.twilioAccountSid,
+          twilioAuthToken: creds.twilioAuthToken,
+          twilioApiKeySid: creds.twilioApiKeySid,
+          twilioApiKeySecret: creds.twilioApiKeySecret,
+          twilioFromNumber: creds.twilioFromNumber,
+          twilioWhatsappFrom: creds.twilioWhatsappFrom,
+        }
+      : undefined;
     try {
-      const result = await sendWhatsAppMessage(phone, TEST_WHATSAPP_BODY);
+      const result = await sendWhatsAppMessage(phone, TEST_WHATSAPP_BODY, override);
       const msgLog = await logMessage({
       organizationId: req.auth?.organizationId,
         type: "whatsapp",

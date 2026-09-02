@@ -421,6 +421,59 @@ export async function assertCustomerCreateCapacity(
   return { entitlement, allowedCount: Math.min(remaining, Math.max(0, requestedCount)) };
 }
 
+/**
+ * Block data export / bulk download when subscription is within the export-lock window
+ * (≤30 days to expiry, or already past entitlement end).
+ */
+export async function assertCanExportData(organizationId: string): Promise<EntitlementPayload> {
+  const entitlement = await getEntitlementForOrg(organizationId);
+  if (!entitlement) {
+    throw new AppHttpError(403, "Organization subscription not found.", "SUBSCRIPTION_MISSING");
+  }
+  if (!entitlement.canExportData) {
+    throw new AppHttpError(
+      403,
+      "Data export is locked until you renew your subscription.",
+      "EXPORT_LOCKED",
+      {
+        planName: entitlement.subscription.planName,
+        status: entitlement.subscription.status,
+        expiresAt: entitlement.subscription.expiresAt,
+        trialEndsAt: entitlement.subscription.trialEndsAt,
+        daysRemaining: entitlement.subscription.daysRemaining,
+        graceOrLock: entitlement.subscription.graceOrLock,
+        upgradeUrl: entitlement.subscription.upgradeUrl,
+        contactUsUrl: entitlement.subscription.contactUsUrl,
+      }
+    );
+  }
+  return entitlement;
+}
+
+/** True when the request opts into export/download semantics. */
+export function isExportIntentRequest(req: {
+  query?: Record<string, unknown>;
+  headers?: Record<string, unknown>;
+}): boolean {
+  const q = req.query ?? {};
+  const exportFlag = q.export ?? q.download;
+  if (exportFlag === "1" || exportFlag === "true" || exportFlag === true) return true;
+  const format = String(q.format ?? "").toLowerCase();
+  if (format === "csv" || format === "xlsx" || format === "json-export") return true;
+  const intent = req.headers?.["x-export-intent"];
+  const intentVal = Array.isArray(intent) ? intent[0] : intent;
+  const intentStr = String(intentVal ?? "").toLowerCase();
+  return intentStr === "1" || intentStr === "true";
+}
+
+export async function enforceExportLockIfRequested(
+  organizationId: string,
+  req: { query?: Record<string, unknown>; headers?: Record<string, unknown> }
+): Promise<void> {
+  if (!isExportIntentRequest(req)) return;
+  await assertCanExportData(organizationId);
+}
+
 export async function listOrganizationsForPlatform() {
   const orgs = await prisma.organization.findMany({
     orderBy: { name: "asc" },

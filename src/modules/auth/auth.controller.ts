@@ -491,8 +491,16 @@ export async function uploadMyAvatar(req: Request, res: Response, next: NextFunc
       res.status(400).json({ data: null, error: { message: "No image file provided." } });
       return;
     }
-    /** Cloud (S3/R2): absolute URL. Local fallback: `/uploads/avatars/...`. */
+    if (!req.auth.organizationId) {
+      res.status(403).json({
+        data: null,
+        error: { message: "Organization not found on user", code: "ORG_MISSING" },
+      });
+      return;
+    }
+    /** Cloud (S3/R2): absolute URL. Local fallback: `/uploads/orgs/.../avatars/...`. */
     const avatarUrl = await persistAvatarFile({
+      organizationId: req.auth.organizationId,
       buffer: file.buffer,
       mimeType: file.mimetype,
       userId: req.auth.id,

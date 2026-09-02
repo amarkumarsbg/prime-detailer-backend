@@ -1,8 +1,19 @@
 import twilio from "twilio";
 import { env } from "../config/env.js";
 import { splitWhatsAppMessage } from "./whatsapp-message-split.js";
+import type { ResolvedMessagingCredentials } from "../lib/org-messaging-credentials.js";
 
 let client: ReturnType<typeof twilio> | null = null;
+
+export type TwilioSendOverride = Pick<
+  ResolvedMessagingCredentials,
+  | "twilioAccountSid"
+  | "twilioAuthToken"
+  | "twilioApiKeySid"
+  | "twilioApiKeySecret"
+  | "twilioFromNumber"
+  | "twilioWhatsappFrom"
+>;
 
 function isTwilioConfigured(): boolean {
   const account = Boolean(env.TWILIO_ACCOUNT_SID?.trim());
@@ -31,6 +42,25 @@ function getClient() {
     }
   }
   return client;
+}
+
+function clientFromOverride(creds: TwilioSendOverride): ReturnType<typeof twilio> {
+  const accountSid = creds.twilioAccountSid?.trim();
+  if (!accountSid) throw new Error("Twilio account SID missing");
+  const keySid = creds.twilioApiKeySid?.trim();
+  const keySecret = creds.twilioApiKeySecret?.trim();
+  if (keySid && keySecret) {
+    return twilio(keySid, keySecret, { accountSid });
+  }
+  const token = creds.twilioAuthToken?.trim();
+  if (!token) {
+    throw new Error("Twilio auth token or API key pair missing");
+  }
+  return twilio(accountSid, token);
+}
+
+function resolveClient(override?: TwilioSendOverride) {
+  return override?.twilioAccountSid ? clientFromOverride(override) : getClient();
 }
 
 export function isTwilioSmsEnabled(): boolean {
@@ -97,15 +127,20 @@ export async function sendLoginOtpSms(
 }
 
 /** Reuse for appointment/reminder SMS once Twilio is configured. */
-export async function sendTransactionalSms(e164To: string, messageBody: string): Promise<void> {
-  if (!isTwilioSmsEnabled()) {
+export async function sendTransactionalSms(
+  e164To: string,
+  messageBody: string,
+  override?: TwilioSendOverride
+): Promise<void> {
+  const from = override?.twilioFromNumber?.trim() || env.TWILIO_FROM_NUMBER?.trim();
+  if (!from || (!override && !isTwilioSmsEnabled())) {
     throw new Error(
       "Twilio is not configured (set TWILIO_ACCOUNT_SID, TWILIO_FROM_NUMBER, and either TWILIO_AUTH_TOKEN or TWILIO_API_KEY_SID + TWILIO_API_KEY_SECRET)"
     );
   }
-  await getClient().messages.create({
+  await resolveClient(override).messages.create({
     body: messageBody,
-    from: env.TWILIO_FROM_NUMBER!.trim(),
+    from,
     to: e164To,
   });
 }
@@ -125,16 +160,18 @@ export type TwilioWhatsAppSendResult = {
   twilioErrorMessage?: string | null;
 };
 
-async function fetchMessageOutcome(sid: string): Promise<{
+async function fetchMessageOutcome(
+  sid: string,
+  override?: TwilioSendOverride
+): Promise<{
   status?: string;
   errorCode?: number | null;
   errorMessage?: string | null;
 }> {
-  const client = getClient();
-  /** Twilio often leaves error fields empty until the message leaves `queued`. */
+  const twilioClient = resolveClient(override);
   for (let attempt = 0; attempt < 4; attempt++) {
     await new Promise((r) => setTimeout(r, attempt === 0 ? 500 : 2000));
-    const m = await client.messages(sid).fetch();
+    const m = await twilioClient.messages(sid).fetch();
     const errorCode = m.errorCode ?? null;
     const errorMessage = (m.errorMessage as string | null) ?? null;
     const status = m.status ?? undefined;
@@ -158,20 +195,24 @@ async function fetchMessageOutcome(sid: string): Promise<{
  */
 export async function sendWhatsAppMessage(
   toPhoneInput: string,
-  messageBodyOrTemplate: string | WhatsAppTemplateSend
+  messageBodyOrTemplate: string | WhatsAppTemplateSend,
+  override?: TwilioSendOverride
 ): Promise<TwilioWhatsAppSendResult> {
-  if (!isTwilioWhatsAppEnabled()) {
+  const whatsappFrom =
+    override?.twilioWhatsappFrom?.trim() || env.TWILIO_WHATSAPP_FROM?.trim();
+  if (!whatsappFrom || (!override && !isTwilioWhatsAppEnabled())) {
     throw new Error(
       "Twilio WhatsApp is not configured (set TWILIO_WHATSAPP_FROM=whatsapp:+… with the same account credentials as SMS)"
     );
   }
   const to = toTwilioWhatsAppAddress(toPhoneInput);
-  const from = whatsappChannelAddress(env.TWILIO_WHATSAPP_FROM!.trim());
+  const from = whatsappChannelAddress(whatsappFrom);
+  const twilioClient = resolveClient(override);
 
   const isTemplate = typeof messageBodyOrTemplate === "object" && messageBodyOrTemplate !== null;
 
   if (isTemplate) {
-    const msg = await getClient().messages.create({
+    const msg = await twilioClient.messages.create({
       from,
       to,
       contentSid: messageBodyOrTemplate.contentSid.trim(),
@@ -188,7 +229,7 @@ export async function sendWhatsAppMessage(
       twilioErrorCode: typeof msg.errorCode === "number" ? msg.errorCode : null,
       twilioErrorMessage: (msg.errorMessage as string | null) ?? null,
     };
-    const later = await fetchMessageOutcome(msg.sid);
+    const later = await fetchMessageOutcome(msg.sid, override);
     if (later.status) out.status = later.status;
     if (later.errorCode !== undefined && later.errorCode !== null) out.twilioErrorCode = later.errorCode;
     if (later.errorMessage !== undefined && later.errorMessage) out.twilioErrorMessage = later.errorMessage;
@@ -209,7 +250,7 @@ export async function sendWhatsAppMessage(
   };
 
   for (let i = 0; i < parts.length; i++) {
-    const msg = await getClient().messages.create({
+    const msg = await twilioClient.messages.create({
       from,
       to,
       body: parts[i]!,
@@ -220,7 +261,7 @@ export async function sendWhatsAppMessage(
       twilioErrorCode: typeof msg.errorCode === "number" ? msg.errorCode : null,
       twilioErrorMessage: (msg.errorMessage as string | null) ?? null,
     };
-    const later = await fetchMessageOutcome(msg.sid);
+    const later = await fetchMessageOutcome(msg.sid, override);
     if (later.status) out.status = later.status;
     if (later.errorCode !== undefined && later.errorCode !== null) out.twilioErrorCode = later.errorCode;
     if (later.errorMessage !== undefined && later.errorMessage) out.twilioErrorMessage = later.errorMessage;
