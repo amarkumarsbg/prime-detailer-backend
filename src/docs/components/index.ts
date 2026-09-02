@@ -8,7 +8,8 @@ export const openApiComponents = {
       scheme: "bearer",
       bearerFormat: "JWT",
       description:
-        "Studio JWT from login / OTP verify / change-password. Click Authorize and paste the token only (no `Bearer ` prefix).",
+        "JWT from staff login (`POST /api/auth/login` / OTP), customer portal login (`POST /api/auth/customer/login`), or PLATFORM_OWNER session. " +
+        "Click Authorize and paste the token only (no `Bearer ` prefix). Tenant organization context is taken from the token — do not send organizationId as a trusted security parameter.",
     },
     PlatformAdminKey: {
       type: "apiKey",

@@ -12,7 +12,7 @@ export const authPaths: OpenApiPaths = {
     post: {
       tags: ["Auth"],
       summary: "Password login",
-      description: "Public. Returns JWT + user + branch.",
+      description: "Public. Returns JWT + user + branch. Login is allowed for inactive orgs so owners can renew; workshop APIs remain blocked until restored.",
       security: [],
       requestBody: jsonBody({
         type: "object",
@@ -397,7 +397,9 @@ export const publicPaths: OpenApiPaths = {
       tags: ["Public"],
       summary: "Submit public signup lead",
       description:
-        "No auth. Captures inbound signup intent for follow-up by the platform team. Rate-limited by IP. Does not create a tenant — use /api/public/register for self-serve account creation.",
+        "No auth. **Lead capture only** — stores inbound signup intent in `publicSignups` AppJsonRow for platform follow-up. " +
+        "Does **not** create an Organization, User, Branch, or Subscription. " +
+        "For self-serve tenant creation use `POST /api/public/register`. Rate-limited by IP.",
       security: [],
       requestBody: jsonBody({
         type: "object",
