@@ -156,12 +156,21 @@ model SubscriptionPayment {
   notes          String?
   recordedBy     String?
   verifiedAt     DateTime?
+  /**
+   * Online SaaS billing gateway (MOCK | RAZORPAY). Null for manual renew/admin mark-paid.
+   */
+  gatewayProvider String?
+  /**
+   * Provider order / checkout id (e.g. Razorpay order_id). Used for webhook correlation.
+   */
+  gatewayOrderId  String?
   createdAt      DateTime                  @default(now())
   updatedAt      DateTime                  @updatedAt
   bill           SubscriptionBill?
 
   @@index([organizationId, createdAt])
   @@index([subscriptionId, createdAt])
+  @@index([gatewayOrderId])
 }
 
 model SubscriptionBill {

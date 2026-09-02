@@ -265,6 +265,80 @@ export const organizationPaths: OpenApiPaths = {
       },
     },
   },
+  "/api/organization/subscription/billing-status": {
+    get: {
+      tags: ["Organization"],
+      summary: "Online SaaS billing gateway status",
+      description:
+        "Returns whether online subscription checkout is enabled and which provider (MOCK | RAZORPAY). Workshop invoice payments are unrelated.",
+      security: bearerSecurity,
+      responses: {
+        "200": okResponse({
+          type: "object",
+          properties: {
+            enabled: { type: "boolean" },
+            provider: { type: "string", nullable: true, enum: ["MOCK", "RAZORPAY", null] },
+          },
+        }),
+        ...commonErrorResponses(),
+      },
+    },
+  },
+  "/api/organization/subscription/checkout": {
+    post: {
+      tags: ["Organization"],
+      summary: "Start online SaaS subscription checkout",
+      description:
+        "Creates (or reuses) a renewal payment and a gateway order. Confirm via /checkout/confirm or /api/public/billing/webhook. Manual renew + platform verify-payment still work.",
+      security: bearerSecurity,
+      requestBody: jsonBody(
+        {
+          type: "object",
+          properties: {
+            termMonths: termMonthsSchema,
+            extraBranches: { type: "integer", minimum: 0 },
+            extraUsers: { type: "integer", minimum: 0 },
+            referralCode: { type: "string", nullable: true, maxLength: 32 },
+            notes: { type: "string", maxLength: 500 },
+            paymentId: {
+              type: "string",
+              description: "Optional existing PENDING payment to attach checkout to.",
+            },
+          },
+        },
+        false
+      ),
+      responses: {
+        "201": okResponse({ type: "object", additionalProperties: true }),
+        ...commonErrorResponses(),
+      },
+    },
+  },
+  "/api/organization/subscription/checkout/confirm": {
+    post: {
+      tags: ["Organization"],
+      summary: "Confirm online SaaS checkout",
+      description:
+        "Mock: send confirmToken from checkout. Razorpay: send razorpay_order_id, razorpay_payment_id, razorpay_signature. Idempotent if already PAID.",
+      security: bearerSecurity,
+      requestBody: jsonBody({
+        type: "object",
+        required: ["paymentId"],
+        properties: {
+          paymentId: { type: "string" },
+          confirmToken: { type: "string" },
+          outcome: { type: "string", enum: ["PAID", "FAILED"] },
+          razorpay_order_id: { type: "string" },
+          razorpay_payment_id: { type: "string" },
+          razorpay_signature: { type: "string" },
+        },
+      }),
+      responses: {
+        "200": okResponse({ type: "object", additionalProperties: true }),
+        ...commonErrorResponses(),
+      },
+    },
+  },
   "/api/organization/subscription/bills": {
     get: {
       tags: ["Organization"],

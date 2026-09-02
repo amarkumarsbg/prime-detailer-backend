@@ -18,6 +18,11 @@ import {
 import { AppHttpError } from "../../lib/app-http-error.js";
 import { parsePlanLimits } from "../../lib/plan-catalog.js";
 import { prisma } from "../../lib/prisma.js";
+import {
+  confirmSubscriptionCheckout,
+  createSubscriptionCheckout,
+  getBillingGatewayStatus,
+} from "../billing/subscription-checkout.service.js";
 
 async function resolveOrgId(req: Request): Promise<string | undefined> {
   if (req.auth?.organizationId) return req.auth.organizationId;
@@ -78,6 +83,96 @@ export async function postStudioRenewRequest(req: Request, res: Response, next: 
       .parse(req.body ?? {});
     const result = await requestSubscriptionRenewal(orgId, actorFromReq(req), body);
     res.json({ data: result, error: null });
+  } catch (e) {
+    next(e);
+  }
+}
+
+const checkoutSchema = z.object({
+  notes: z.string().max(500).optional(),
+  termMonths: z.union([z.literal(12), z.literal(24), z.literal(36), z.literal(60)]).optional(),
+  extraBranches: z.number().int().nonnegative().optional(),
+  extraUsers: z.number().int().nonnegative().optional(),
+  referralCode: z.string().max(32).nullable().optional(),
+  paymentId: z.string().min(1).optional(),
+});
+
+/** POST /api/organization/subscription/checkout — start online SaaS payment */
+export async function postStudioSubscriptionCheckout(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const orgId = await resolveOrgId(req);
+    if (!orgId) {
+      throw new AppHttpError(403, "Organization not found on user", "ORG_MISSING");
+    }
+    const body = checkoutSchema.parse(req.body ?? {});
+    const session = await createSubscriptionCheckout(orgId, actorFromReq(req), body);
+    res.status(201).json({ data: session, error: null });
+  } catch (e) {
+    next(e);
+  }
+}
+
+const confirmCheckoutSchema = z.object({
+  paymentId: z.string().min(1),
+  confirmToken: z.string().min(1).optional(),
+  outcome: z.enum(["PAID", "FAILED"]).optional(),
+  razorpay_order_id: z.string().min(1).optional(),
+  razorpay_payment_id: z.string().min(1).optional(),
+  razorpay_signature: z.string().min(1).optional(),
+});
+
+/** POST /api/organization/subscription/checkout/confirm */
+export async function postStudioSubscriptionCheckoutConfirm(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const orgId = await resolveOrgId(req);
+    if (!orgId) {
+      throw new AppHttpError(403, "Organization not found on user", "ORG_MISSING");
+    }
+    const body = confirmCheckoutSchema.parse(req.body ?? {});
+    const razorpay =
+      body.razorpay_order_id && body.razorpay_payment_id && body.razorpay_signature
+        ? {
+            razorpay_order_id: body.razorpay_order_id,
+            razorpay_payment_id: body.razorpay_payment_id,
+            razorpay_signature: body.razorpay_signature,
+          }
+        : undefined;
+    const entitlement = await confirmSubscriptionCheckout(
+      orgId,
+      {
+        paymentId: body.paymentId,
+        confirmToken: body.confirmToken,
+        outcome: body.outcome,
+        razorpay,
+      },
+      actorFromReq(req)
+    );
+    res.json({ data: entitlement, error: null });
+  } catch (e) {
+    next(e);
+  }
+}
+
+/** GET /api/organization/subscription/billing-status */
+export async function getStudioBillingGatewayStatus(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const orgId = await resolveOrgId(req);
+    if (!orgId) {
+      throw new AppHttpError(403, "Organization not found on user", "ORG_MISSING");
+    }
+    res.json({ data: getBillingGatewayStatus(), error: null });
   } catch (e) {
     next(e);
   }

@@ -57,6 +57,22 @@ app.use(
     credentials: true,
   })
 );
+
+/**
+ * SaaS billing webhooks need the raw body for HMAC verification.
+ * Must be registered before express.json().
+ */
+app.post(
+  "/api/public/billing/webhook",
+  express.raw({ type: "application/json" }),
+  async (req, res, next) => {
+    const { postPublicBillingWebhook } = await import(
+      "./modules/billing/billing-webhook.controller.js"
+    );
+    return postPublicBillingWebhook(req, res, next);
+  }
+);
+
 /** Invoice email attaches base64 PDFs; default 100kb limit causes "request entity too large". */
 app.use(express.json({ limit: "12mb" }));
 app.use(express.urlencoded({ extended: true, limit: "12mb" }));

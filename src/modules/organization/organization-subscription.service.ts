@@ -885,6 +885,12 @@ export async function verifySubscriptionPayment(
     return toEntitlement(org, updated, usage.branchesUsed, usage.usersUsed);
   }
 
+  /** Idempotent: already verified PAID — do not extend term again. */
+  if (payment.status === "PAID") {
+    const usage = await usageForOrg(orgId);
+    return toEntitlement(org, sub, usage.branchesUsed, usage.usersUsed);
+  }
+
   const termMonths = normalizeTermMonths(pricing?.termMonths ?? sub.termMonths);
   const now = new Date();
   const currentEnd = resolveExpiresAt(sub);

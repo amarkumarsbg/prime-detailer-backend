@@ -512,6 +512,27 @@ export const publicPaths: OpenApiPaths = {
       },
     },
   },
+  "/api/public/billing/webhook": {
+    post: {
+      tags: ["Public"],
+      summary: "SaaS billing gateway webhook",
+      description:
+        "No auth. Raw JSON body + provider signature header. Mock: X-Billing-Signature (HMAC-SHA256 of body with BILLING_WEBHOOK_SECRET). Razorpay: X-Razorpay-Signature. Completes subscription payment via existing verify path. Workshop invoices are not handled here.",
+      security: [],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { type: "object", additionalProperties: true },
+          },
+        },
+      },
+      responses: {
+        "200": okResponse({ type: "object", additionalProperties: true }),
+        ...commonErrorResponses(),
+      },
+    },
+  },
   "/api/public/contact": {
     post: {
       tags: ["Public"],
