@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth, requirePermission } from "../middleware/auth.js";
+import { requireWorkshopAccess } from "../middleware/workshop-access.js";
 import {
   postSmsTest,
   postTransactionalEmail,
@@ -10,6 +11,7 @@ import {
 export const messagingRouter = Router();
 
 messagingRouter.use(requireAuth);
+messagingRouter.use(requireWorkshopAccess);
 
 /** Test/diagnostic sends — settings admins only. Operational send stays auth-only (cross-feature). */
 messagingRouter.post("/sms/test", requirePermission("SETTINGS"), postSmsTest);

@@ -1,11 +1,13 @@
 import {
   bearerSecurity,
   commonErrorResponses,
+  exportIntentParameters,
   jsonBody,
   okResponse,
   permNote,
   platformSecurity,
   ref,
+  workshopAccessNote,
   type OpenApiPaths,
 } from "../helpers.js";
 
@@ -20,7 +22,12 @@ export const messagingPaths: OpenApiPaths = {
     post: {
       tags: ["Messaging"],
       summary: "Send test SMS",
-      description: permNote("SETTINGS", "Uses a fixed server test body."),
+      description: permNote(
+        "SETTINGS",
+        workshopAccessNote(
+          "Uses org messaging settings when configured; otherwise platform TWILIO_* env. Fixed server test body."
+        )
+      ),
       security: bearerSecurity,
       requestBody: jsonBody({
         type: "object",
@@ -40,7 +47,12 @@ export const messagingPaths: OpenApiPaths = {
     post: {
       tags: ["Messaging"],
       summary: "Send test WhatsApp",
-      description: permNote("SETTINGS", "Uses a fixed server test body."),
+      description: permNote(
+        "SETTINGS",
+        workshopAccessNote(
+          "Uses org messaging settings when configured; otherwise platform TWILIO_* env. Fixed server test body."
+        )
+      ),
       security: bearerSecurity,
       requestBody: jsonBody({
         type: "object",
@@ -60,8 +72,9 @@ export const messagingPaths: OpenApiPaths = {
     post: {
       tags: ["Messaging"],
       summary: "Send transactional WhatsApp",
-      description:
-        "Requires JWT (any authenticated staff). Provide exactly one of `message` or `contentSid`.",
+      description: workshopAccessNote(
+        "Tenant JWT. Provide exactly one of `message` or `contentSid`. Org-scoped Twilio credentials when set; else platform env."
+      ),
       security: bearerSecurity,
       requestBody: jsonBody({
         type: "object",
@@ -87,7 +100,9 @@ export const messagingPaths: OpenApiPaths = {
     post: {
       tags: ["Messaging", "Billing"],
       summary: "Send transactional email (e.g. invoice)",
-      description: "Requires JWT. Uses Resend. Attachments are base64 (do not paste secrets).",
+      description: workshopAccessNote(
+        "Tenant JWT. Uses Resend. Org resendApiKey/mailFrom when set; else platform RESEND_API_KEY / MAIL_FROM. Attachments are base64 (do not paste secrets)."
+      ),
       security: bearerSecurity,
       requestBody: jsonBody({
         type: "object",
@@ -173,8 +188,10 @@ export const bootstrapPaths: OpenApiPaths = {
       tags: ["Bootstrap"],
       summary: "Shell bootstrap (thin)",
       description:
-        "Requires JWT. Returns org-scoped branches, public branding (from appSettings), and subscription entitlement. " +
-        "Does **not** return customers, vehicles, users, payroll, cash/bank, or other domain collections — load those via permission-scoped entity/collection APIs.",
+        "Requires JWT. Intentionally available when workshop access is locked so owners can renew. " +
+        "Returns org-scoped branches, public branding (from appSettings), and subscription entitlement. " +
+        "Does **not** return customers, vehicles, users, payroll, cash/bank, or other domain collections — load those via permission-scoped entity/collection APIs. " +
+        "Organization context comes from the authenticated identity.",
       security: bearerSecurity,
       responses: {
         "200": okResponse({
@@ -199,37 +216,40 @@ export const bootstrapPaths: OpenApiPaths = {
 export const organizationPaths: OpenApiPaths = {
   "/api/organization/subscription": {
     get: {
-      tags: ["Organization"],
+      tags: ["Organization", "Subscriptions"],
       summary: "Studio subscription entitlement",
-      description: "Requires JWT. Returns plan limits/status for the caller's organization (no internal notes).",
+      description:
+        "Requires tenant JWT. Returns entitlement for the caller's organization (from auth identity — do not send organizationId). " +
+        "Includes trial fields (trialEndsAt, isTrial), usage (branches/users/customers), canCreateBranch / canCreateCustomer / canExportData. " +
+        "This route intentionally remains available when workshop access is locked so tenants can renew.",
       security: bearerSecurity,
       responses: {
-        "200": okResponse(ref("Organization")),
+        "200": okResponse(ref("EntitlementPayload"), "Entitlement for caller organization"),
         ...commonErrorResponses(),
       },
     },
   },
   "/api/organization/subscription/pricing": {
     post: {
-      tags: ["Organization"],
+      tags: ["Organization", "Subscriptions"],
       summary: "Get subscription pricing quote",
-      description: "Returns a pricing quote for the given plan term and add-ons. Does not create a renewal. Requires JWT.",
+      description:
+        "Returns a pricing quote for the given plan term and add-ons. Does not create a renewal. Requires tenant JWT. Available during export/workshop lock for renewals.",
       security: bearerSecurity,
       requestBody: jsonBody({
         type: "object",
         required: ["termMonths"],
         properties: {
           termMonths: termMonthsSchema,
-          extraBranches: { type: "integer", minimum: 0, default: 0, description: "Additional branch slots beyond the plan default." },
-          extraUsers: { type: "integer", minimum: 0, default: 0, description: "Additional staff user slots beyond the plan default." },
-          referralCode: { type: "string", nullable: true, maxLength: 32, description: "Optional partner/referral code." },
+          extraBranches: { type: "integer", minimum: 0, default: 0 },
+          extraUsers: { type: "integer", minimum: 0, default: 0 },
+          referralCode: { type: "string", nullable: true, maxLength: 32 },
         },
       }),
       responses: {
         "200": okResponse({
           type: "object",
-          description: "Pricing quote with line items and totals.",
-          additionalProperties: true,
+          properties: { breakdown: { type: "object", additionalProperties: true } },
         }),
         ...commonErrorResponses(),
       },
@@ -237,20 +257,21 @@ export const organizationPaths: OpenApiPaths = {
   },
   "/api/organization/subscription/renew": {
     post: {
-      tags: ["Organization"],
+      tags: ["Organization", "Subscriptions"],
       summary: "Submit subscription renewal request",
-      description: "Creates a pending renewal (bill) for the caller's organization. Requires JWT. After submission, payment must be verified via the platform `/verify-payment` endpoint.",
+      description:
+        "Creates a PENDING SaaS subscription payment for the caller's organization. Platform verify-payment / mark-paid or online checkout completes it. Available when workshop is locked so tenants can renew.",
       security: bearerSecurity,
       requestBody: jsonBody(
         {
           type: "object",
           properties: {
-            termMonths: { ...termMonthsSchema, description: "Desired renewal term in months. Defaults to 12 if omitted." },
-            extraBranches: { type: "integer", minimum: 0, description: "Additional branch slots." },
-            extraUsers: { type: "integer", minimum: 0, description: "Additional user slots." },
+            termMonths: { ...termMonthsSchema },
+            extraBranches: { type: "integer", minimum: 0 },
+            extraUsers: { type: "integer", minimum: 0 },
             referralCode: { type: "string", nullable: true, maxLength: 32 },
-            method: { type: "string", maxLength: 64, description: "Preferred payment method hint (e.g. 'UPI', 'Bank Transfer')." },
-            notes: { type: "string", maxLength: 500, description: "Free-form notes to include with the renewal request." },
+            method: { type: "string", maxLength: 64 },
+            notes: { type: "string", maxLength: 500 },
           },
         },
         false
@@ -258,29 +279,105 @@ export const organizationPaths: OpenApiPaths = {
       responses: {
         "200": okResponse({
           type: "object",
-          description: "Created renewal record.",
-          additionalProperties: true,
+          properties: {
+            entitlement: ref("EntitlementPayload"),
+            payment: ref("SubscriptionPayment"),
+          },
         }),
+        ...commonErrorResponses(),
+      },
+    },
+  },
+  "/api/organization/subscription/billing-status": {
+    get: {
+      tags: ["Organization", "Subscriptions"],
+      summary: "Online SaaS billing gateway status",
+      description:
+        "Returns whether online subscription checkout is enabled and which provider (MOCK | RAZORPAY). Workshop invoice payments are unrelated.",
+      security: bearerSecurity,
+      responses: {
+        "200": okResponse({
+          type: "object",
+          properties: {
+            enabled: { type: "boolean" },
+            provider: { type: "string", nullable: true, enum: ["MOCK", "RAZORPAY"] },
+          },
+        }),
+        ...commonErrorResponses(),
+      },
+    },
+  },
+  "/api/organization/subscription/checkout": {
+    post: {
+      tags: ["Organization", "Subscriptions"],
+      summary: "Start online SaaS subscription checkout",
+      description:
+        "Creates (or reuses) a renewal payment and a gateway order. Confirm via /checkout/confirm or /api/public/billing/webhook.",
+      security: bearerSecurity,
+      requestBody: jsonBody(
+        {
+          type: "object",
+          properties: {
+            termMonths: termMonthsSchema,
+            extraBranches: { type: "integer", minimum: 0 },
+            extraUsers: { type: "integer", minimum: 0 },
+            referralCode: { type: "string", nullable: true, maxLength: 32 },
+            notes: { type: "string", maxLength: 500 },
+            paymentId: { type: "string" },
+          },
+        },
+        false
+      ),
+      responses: {
+        "201": okResponse({
+          type: "object",
+          properties: {
+            provider: { type: "string", enum: ["MOCK", "RAZORPAY"] },
+            payment: ref("SubscriptionPayment"),
+            order: { type: "object", additionalProperties: true },
+            entitlement: ref("EntitlementPayload"),
+          },
+        }),
+        ...commonErrorResponses(),
+      },
+    },
+  },
+  "/api/organization/subscription/checkout/confirm": {
+    post: {
+      tags: ["Organization", "Subscriptions"],
+      summary: "Confirm online SaaS checkout",
+      description:
+        "Mock: send confirmToken from checkout. Razorpay: send razorpay_order_id, razorpay_payment_id, razorpay_signature. Idempotent if already PAID.",
+      security: bearerSecurity,
+      requestBody: jsonBody({
+        type: "object",
+        required: ["paymentId"],
+        properties: {
+          paymentId: { type: "string" },
+          confirmToken: { type: "string" },
+          outcome: { type: "string", enum: ["PAID", "FAILED"] },
+          razorpay_order_id: { type: "string" },
+          razorpay_payment_id: { type: "string" },
+          razorpay_signature: { type: "string" },
+        },
+      }),
+      responses: {
+        "200": okResponse(ref("EntitlementPayload")),
         ...commonErrorResponses(),
       },
     },
   },
   "/api/organization/subscription/bills": {
     get: {
-      tags: ["Organization"],
+      tags: ["Organization", "Subscriptions"],
       summary: "List subscription bills",
-      description: "Returns all subscription bills (invoices) for the caller's organization. Requires JWT.",
+      description: "SaaS subscription bills for the caller's organization (not workshop invoices).",
       security: bearerSecurity,
       responses: {
         "200": okResponse({
           type: "object",
-          required: ["bills"],
           properties: {
-            bills: {
-              type: "array",
-              items: { type: "object", additionalProperties: true },
-              description: "List of subscription bill records.",
-            },
+            bills: { type: "array", items: ref("SubscriptionBill") },
           },
         }),
         ...commonErrorResponses(),
@@ -289,35 +386,162 @@ export const organizationPaths: OpenApiPaths = {
   },
   "/api/organization/subscription/bills/{billId}": {
     get: {
-      tags: ["Organization"],
+      tags: ["Organization", "Subscriptions"],
       summary: "Get a single subscription bill",
-      description: "Returns one subscription bill by ID for the caller's organization. Returns 404 if not found or belongs to a different org. Requires JWT.",
       security: bearerSecurity,
       parameters: [
-        { name: "billId", in: "path", required: true, schema: { type: "string" }, description: "Subscription bill ID." },
+        { name: "billId", in: "path", required: true, schema: { type: "string" } },
       ],
       responses: {
-        "200": okResponse({ type: "object", additionalProperties: true }),
+        "200": okResponse(ref("SubscriptionBill")),
         ...commonErrorResponses(),
       },
     },
   },
   "/api/organization/subscription/renewals": {
     get: {
-      tags: ["Organization"],
+      tags: ["Organization", "Subscriptions"],
       summary: "List subscription renewal history",
-      description: "Returns the renewal history for the caller's organization. Requires JWT.",
       security: bearerSecurity,
       responses: {
         "200": okResponse({
           type: "object",
-          required: ["renewals"],
           properties: {
-            renewals: {
-              type: "array",
-              items: { type: "object", additionalProperties: true },
-              description: "List of renewal records ordered by date.",
+            renewals: { type: "array", items: { type: "object", additionalProperties: true } },
+          },
+        }),
+        ...commonErrorResponses(),
+      },
+    },
+  },
+  "/api/organization/export/check": {
+    get: {
+      tags: ["Exports", "Organization"],
+      summary: "Check export access / lock status",
+      description:
+        "Requires tenant JWT. Returns canExportData / exportLocked based on subscription end date " +
+        "(locked when ≤30 days remain or past expiry). Also returns storageKeyPrefix for this org.",
+      security: bearerSecurity,
+      responses: {
+        "200": okResponse(ref("ExportCheckResponse")),
+        ...commonErrorResponses(),
+      },
+    },
+  },
+  "/api/organization/export/customers": {
+    post: {
+      tags: ["Exports", "Organization"],
+      summary: "Export all customers (JSON)",
+      description:
+        "Requires tenant JWT. Enforces export lock — returns 403 EXPORT_LOCKED when locked. " +
+        "Organization scope from auth identity.",
+      security: bearerSecurity,
+      responses: {
+        "200": okResponse({
+          type: "object",
+          properties: {
+            exportedAt: { type: "string", format: "date-time" },
+            customers: { type: "array", items: ref("Customer") },
+          },
+        }),
+        ...commonErrorResponses({
+          "403": { $ref: "#/components/responses/ExportLocked" },
+        }),
+      },
+    },
+  },
+  "/api/organization/export/collections/{collection}": {
+    post: {
+      tags: ["Exports", "Organization"],
+      summary: "Export an AppJsonRow array collection",
+      description:
+        "Requires tenant JWT. Enforces export lock. `collection` must be a registered array collection (e.g. jobCards, invoices).",
+      security: bearerSecurity,
+      parameters: [
+        {
+          name: "collection",
+          in: "path",
+          required: true,
+          schema: ref("CollectionName"),
+        },
+      ],
+      responses: {
+        "200": okResponse({
+          type: "object",
+          properties: {
+            collection: { type: "string" },
+            exportedAt: { type: "string", format: "date-time" },
+            items: { type: "array", items: { type: "object", additionalProperties: true } },
+          },
+        }),
+        ...commonErrorResponses({
+          "403": { $ref: "#/components/responses/ExportLocked" },
+        }),
+      },
+    },
+  },
+  "/api/organization/messaging-settings": {
+    get: {
+      tags: ["Messaging", "Settings", "Organization"],
+      summary: "Get organization messaging settings",
+      description:
+        "Requires tenant JWT. Returns redacted org overrides plus resolved capability flags. " +
+        "Secrets (auth tokens, API keys) are never returned — only `*Set` booleans. " +
+        "When org fields are unset, platform TWILIO_* / RESEND_* / MAIL_FROM env credentials are used.",
+      security: bearerSecurity,
+      responses: {
+        "200": okResponse({
+          type: "object",
+          properties: {
+            settings: ref("MessagingSettingsPublic"),
+            resolved: ref("MessagingSettingsResolved"),
+          },
+        }),
+        ...commonErrorResponses(),
+      },
+    },
+    patch: {
+      tags: ["Messaging", "Settings", "Organization"],
+      summary: "Update organization messaging settings",
+      description:
+        permNote(
+          "SETTINGS",
+          "Org-scoped overrides for Twilio/Resend. Empty string clears a field. Unset fields continue to fall back to platform env. Response never includes secret values."
+        ),
+      security: bearerSecurity,
+      requestBody: jsonBody(
+        {
+          type: "object",
+          properties: {
+            twilioAccountSid: { type: "string", nullable: true, maxLength: 64 },
+            twilioAuthToken: { type: "string", nullable: true, maxLength: 128 },
+            twilioApiKeySid: { type: "string", nullable: true, maxLength: 64 },
+            twilioApiKeySecret: { type: "string", nullable: true, maxLength: 128 },
+            twilioFromNumber: { type: "string", nullable: true, maxLength: 32, example: "+15551234567" },
+            twilioWhatsappFrom: {
+              type: "string",
+              nullable: true,
+              maxLength: 48,
+              example: "whatsapp:+14155238886",
             },
+            twilioToNumberPrefix: { type: "string", nullable: true, maxLength: 8, example: "+91" },
+            resendApiKey: { type: "string", nullable: true, maxLength: 128 },
+            mailFrom: {
+              type: "string",
+              nullable: true,
+              maxLength: 200,
+              example: "Acme Detailing <noreply@example.com>",
+            },
+          },
+        },
+        false
+      ),
+      responses: {
+        "200": okResponse({
+          type: "object",
+          properties: {
+            settings: ref("MessagingSettingsPublic"),
+            resolved: ref("MessagingSettingsResolved"),
           },
         }),
         ...commonErrorResponses(),
@@ -327,6 +551,24 @@ export const organizationPaths: OpenApiPaths = {
 };
 
 export const platformPaths: OpenApiPaths = {
+  "/api/platform/organizations/provision": {
+    post: {
+      tags: ["SaaS Admin", "Organizations"],
+      summary: "Provision a new tenant organization",
+      description:
+        "Platform auth only (PLATFORM_OWNER JWT or X-Platform-Admin-Key). Transactionally creates Organization + HQ Branch + SUPER_ADMIN owner + STARTER subscription. " +
+        "organizationId is **not** accepted from the client — server generates ids. " +
+        "Default subscription: status ACTIVE, paymentStatus PENDING. With startTrial=true: status TRIAL + trialEndsAt. " +
+        "Response never includes password, hash, JWT, or API keys.",
+      security: platformSecurity,
+      requestBody: jsonBody(ref("ProvisionOrganizationRequest")),
+      responses: {
+        "201": okResponse(ref("ProvisionOrganizationResponse"), "Tenant provisioned"),
+        "409": { $ref: "#/components/responses/Conflict" },
+        ...commonErrorResponses(),
+      },
+    },
+  },
   "/api/platform/organizations": {
     get: {
       tags: ["SaaS Admin"],
@@ -340,7 +582,7 @@ export const platformPaths: OpenApiPaths = {
           properties: {
             organizations: {
               type: "array",
-              items: { type: "object", additionalProperties: true },
+              items: ref("EntitlementPayload"),
             },
           },
         }),
@@ -350,24 +592,24 @@ export const platformPaths: OpenApiPaths = {
   },
   "/api/platform/organizations/{orgId}": {
     get: {
-      tags: ["SaaS Admin"],
-      summary: "Get organization (platform)",
-      description: "PLATFORM_OWNER JWT or X-Platform-Admin-Key.",
+      tags: ["SaaS Admin", "Organizations"],
+      summary: "Get organization entitlement (platform)",
+      description: "PLATFORM_OWNER JWT or X-Platform-Admin-Key. Returns EntitlementPayload for the org.",
       security: platformSecurity,
       parameters: [
         { name: "orgId", in: "path", required: true, schema: { type: "string" } },
       ],
       responses: {
-        "200": okResponse({ type: "object", additionalProperties: true }),
+        "200": okResponse(ref("EntitlementPayload")),
         ...commonErrorResponses(),
       },
     },
   },
   "/api/platform/organizations/{orgId}/subscription": {
     patch: {
-      tags: ["SaaS Admin"],
+      tags: ["SaaS Admin", "Subscriptions"],
       summary: "Patch organization subscription",
-      description: "PLATFORM_OWNER JWT or X-Platform-Admin-Key. Updates plan/limits/CTAs.",
+      description: "PLATFORM_OWNER JWT or X-Platform-Admin-Key. Updates plan/limits/CTAs/status/trialEndsAt.",
       security: platformSecurity,
       parameters: [
         { name: "orgId", in: "path", required: true, schema: { type: "string" } },
@@ -375,31 +617,25 @@ export const platformPaths: OpenApiPaths = {
       requestBody: jsonBody({
         type: "object",
         properties: {
-          planCode: {
-            type: "string",
-            enum: ["STARTER", "GROWTH", "BUSINESS", "ENTERPRISE", "CUSTOM"],
-          },
+          planCode: ref("PlanCode"),
           planName: { type: "string" },
-          status: {
-            type: "string",
-            enum: ["ACTIVE", "PAST_DUE", "EXPIRED", "CANCELLED"],
-          },
-          limits: {
-            type: "object",
-            properties: {
-              maxBranches: { type: "integer", nullable: true },
-              maxStaff: { type: "integer", nullable: true },
-              maxCustomers: { type: "integer", nullable: true },
-            },
-          },
+          status: ref("SubscriptionStatus"),
+          limits: ref("PlanLimits"),
           maxBranchesOverride: { type: "integer", nullable: true },
+          maxUsersOverride: { type: "integer", nullable: true },
           contactUsUrl: { type: "string", nullable: true },
           contactPhone: { type: "string", nullable: true },
           upgradeUrl: { type: "string", nullable: true },
+          termMonths: termMonthsSchema,
+          startsAt: { type: "string", format: "date-time", nullable: true },
+          expiresAt: { type: "string", format: "date-time", nullable: true },
+          trialEndsAt: { type: "string", format: "date-time", nullable: true },
+          paymentStatus: ref("SubscriptionPaymentStatus"),
+          lastPaymentTxnId: { type: "string", nullable: true },
         },
       }),
       responses: {
-        "200": okResponse({ type: "object", additionalProperties: true }),
+        "200": okResponse(ref("EntitlementPayload")),
         ...commonErrorResponses(),
       },
     },
@@ -428,7 +664,7 @@ export const platformPaths: OpenApiPaths = {
         },
       }),
       responses: {
-        "200": okResponse({ type: "object", additionalProperties: true, description: "Updated entitlement record." }),
+        "200": okResponse(ref("EntitlementPayload"), "Updated entitlement record."),
         ...commonErrorResponses(),
       },
     },
@@ -458,7 +694,41 @@ export const platformPaths: OpenApiPaths = {
         false
       ),
       responses: {
-        "200": okResponse({ type: "object", additionalProperties: true, description: "Updated entitlement record." }),
+        "200": okResponse(ref("EntitlementPayload"), "Updated entitlement record."),
+        ...commonErrorResponses(),
+      },
+    },
+  },
+  "/api/platform/organizations/{orgId}/subscription/convert-trial": {
+    post: {
+      tags: ["SaaS Admin", "Subscriptions"],
+      summary: "Convert TRIAL subscription to ACTIVE paid term",
+      description:
+        "Platform auth only. Converts TRIAL → ACTIVE, clears trialEndsAt, sets expiresAt/currentPeriodEnd from termMonths (from now). " +
+        "paymentStatus stays PENDING unless markPaid=true. Optional planCode upgrade at convert time. " +
+        "Rejects non-trial subscriptions.",
+      security: platformSecurity,
+      parameters: [
+        { name: "orgId", in: "path", required: true, schema: { type: "string" } },
+      ],
+      requestBody: jsonBody(
+        {
+          type: "object",
+          properties: {
+            termMonths: termMonthsSchema,
+            planCode: ref("PlanCode"),
+            markPaid: {
+              type: "boolean",
+              description: "When true, sets paymentStatus PAID. Default false keeps PENDING.",
+              example: false,
+            },
+          },
+          example: { termMonths: 12, planCode: "GROWTH", markPaid: false },
+        },
+        false
+      ),
+      responses: {
+        "200": okResponse(ref("EntitlementPayload")),
         ...commonErrorResponses(),
       },
     },
@@ -607,8 +877,10 @@ export const platformExtPaths: OpenApiPaths = {
   },
   "/api/platform/organizations/{orgId}/suspend": {
     post: {
-      tags: ["SaaS Admin"],
-      summary: "Suspend organization subscription",
+      tags: ["SaaS Admin", "Organizations"],
+      summary: "Suspend organization",
+      description:
+        "Platform auth. Sets subscription status CANCELLED and organization.isActive=false. Blocks workshop access (403 ORG_INACTIVE / SUBSCRIPTION_CANCELLED).",
       security: platformSecurity,
       parameters: [orgIdParam],
       requestBody: jsonBody({ type: "object", required: ["reason"], properties: { reason: { type: "string", minLength: 1, maxLength: 500 } } }),
@@ -620,8 +892,10 @@ export const platformExtPaths: OpenApiPaths = {
   },
   "/api/platform/organizations/{orgId}/restore": {
     post: {
-      tags: ["SaaS Admin"],
-      summary: "Restore suspended organization subscription",
+      tags: ["SaaS Admin", "Organizations"],
+      summary: "Restore suspended organization",
+      description:
+        "Platform auth. Sets subscription status ACTIVE and organization.isActive=true.",
       security: platformSecurity,
       parameters: [orgIdParam],
       requestBody: jsonBody({ type: "object", properties: { reason: { type: "string", maxLength: 500 } } }, false),

@@ -87,11 +87,14 @@ export async function sendViaResend(params: {
   html: string;
   text?: string;
   attachments?: ResendAttachment[];
+  /** Optional org-scoped credentials (falls back to platform env). */
+  apiKey?: string | null;
+  mailFrom?: string | null;
 }): Promise<ResendSendResult> {
-  const key = env.RESEND_API_KEY;
+  const key = params.apiKey?.trim() || env.RESEND_API_KEY;
   if (!key) return { ok: false, detail: "RESEND_API_KEY is not set" };
 
-  const configuredFrom = env.MAIL_FROM ?? RESEND_TEST_FROM;
+  const configuredFrom = params.mailFrom?.trim() || env.MAIL_FROM || RESEND_TEST_FROM;
   let result = await sendResendOnce(key, configuredFrom, params);
 
   const devFallback =

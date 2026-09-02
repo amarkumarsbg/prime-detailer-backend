@@ -122,7 +122,10 @@ export const schemaComponents = {
       email: { type: "string", nullable: true },
       managerName: { type: "string", nullable: true },
       managerPhone: { type: "string", nullable: true },
-      organizationId: { type: "string" },
+      organizationId: {
+        type: "string",
+        description: "Server-managed tenant id — taken from auth context on create; not a client security parameter",
+      },
     },
   },
 
@@ -498,29 +501,17 @@ export const schemaComponents = {
 
   Organization: {
     type: "object",
-    description: "Studio-safe organization view (no internalNotes)",
+    description:
+      "Studio-safe organization fields (no internalNotes). Prefer EntitlementPayload for GET /api/organization/subscription.",
     properties: {
-      id: { type: "string" },
+      id: { type: "string", description: "Server-managed organization id" },
       name: { type: "string" },
       slug: { type: "string", nullable: true },
       isActive: { type: "boolean" },
-      planCode: {
-        type: "string",
-        enum: ["STARTER", "GROWTH", "BUSINESS", "ENTERPRISE", "CUSTOM"],
-      },
+      planCode: { $ref: "#/components/schemas/PlanCode" },
       planName: { type: "string" },
-      status: {
-        type: "string",
-        enum: ["ACTIVE", "PAST_DUE", "EXPIRED", "CANCELLED"],
-      },
-      limits: {
-        type: "object",
-        properties: {
-          maxBranches: { type: "integer", nullable: true },
-          maxStaff: { type: "integer", nullable: true },
-          maxCustomers: { type: "integer", nullable: true },
-        },
-      },
+      status: { $ref: "#/components/schemas/SubscriptionStatus" },
+      limits: { $ref: "#/components/schemas/PlanLimits" },
       contactUsUrl: { type: "string", nullable: true },
       contactPhone: { type: "string", nullable: true },
       upgradeUrl: { type: "string", nullable: true },
@@ -629,6 +620,305 @@ export const schemaComponents = {
       "staffTargets",
       "staffRewardSettings",
     ],
+  },
+
+  PlanCode: {
+    type: "string",
+    enum: ["STARTER", "GROWTH", "BUSINESS", "ENTERPRISE", "CUSTOM"],
+  },
+
+  SubscriptionStatus: {
+    type: "string",
+    enum: ["ACTIVE", "PAST_DUE", "EXPIRED", "CANCELLED", "TRIAL"],
+    description:
+      "Workshop access allowed for ACTIVE, PAST_DUE, and TRIAL (while trialEndsAt is in the future). EXPIRED/CANCELLED block workshop APIs.",
+  },
+
+  SubscriptionPaymentStatus: {
+    type: "string",
+    enum: ["PAID", "PENDING", "PROCESSING", "FAILED"],
+  },
+
+  PlanLimits: {
+    type: "object",
+    properties: {
+      maxBranches: { type: "integer", nullable: true, description: "null = unlimited" },
+      maxStaff: { type: "integer", nullable: true },
+      maxCustomers: { type: "integer", nullable: true },
+    },
+  },
+
+  OrganizationSubscription: {
+    type: "object",
+    description: "SaaS subscription fields returned inside entitlement payloads",
+    properties: {
+      planCode: { $ref: "#/components/schemas/PlanCode" },
+      planName: { type: "string" },
+      status: { $ref: "#/components/schemas/SubscriptionStatus" },
+      limits: { $ref: "#/components/schemas/PlanLimits" },
+      maxBranchesOverride: { type: "integer", nullable: true },
+      effectiveMaxBranches: { type: "integer", nullable: true },
+      maxUsersOverride: { type: "integer", nullable: true },
+      effectiveMaxUsers: { type: "integer", nullable: true },
+      effectiveMaxCustomers: { type: "integer", nullable: true },
+      contactUsUrl: { type: "string", nullable: true },
+      contactPhone: { type: "string", nullable: true },
+      upgradeUrl: { type: "string", nullable: true },
+      termMonths: { type: "integer", enum: [12, 24, 36, 60] },
+      startsAt: { type: "string", format: "date-time", nullable: true },
+      expiresAt: {
+        type: "string",
+        format: "date-time",
+        nullable: true,
+        description: "End of paid period. Export lock when ≤30 days remain.",
+      },
+      trialEndsAt: {
+        type: "string",
+        format: "date-time",
+        nullable: true,
+        description: "When status is TRIAL, workshop access ends after this timestamp.",
+      },
+      paymentStatus: { $ref: "#/components/schemas/SubscriptionPaymentStatus" },
+      lastPaymentTxnId: { type: "string", nullable: true },
+      daysRemaining: { type: "integer", nullable: true },
+      graceOrLock: { type: "string", enum: ["OK", "EXPORT_LOCKED", "EXPIRED"] },
+      exportLocked: { type: "boolean" },
+      isTrial: { type: "boolean", description: "True when status is TRIAL and trial has not ended" },
+      currentPeriodEnd: {
+        type: "string",
+        format: "date-time",
+        nullable: true,
+        description: "Legacy alias mirrored from expiresAt",
+      },
+    },
+  },
+
+  EntitlementPayload: {
+    type: "object",
+    description:
+      "Studio/platform entitlement view. Organization context is taken from the authenticated identity — do not send organizationId as a trusted client security parameter.",
+    properties: {
+      organization: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "Server-managed organization id" },
+          name: { type: "string" },
+          slug: { type: "string", nullable: true },
+        },
+      },
+      subscription: { $ref: "#/components/schemas/OrganizationSubscription" },
+      usage: {
+        type: "object",
+        properties: {
+          branchesUsed: { type: "integer" },
+          usersUsed: { type: "integer" },
+          customersUsed: { type: "integer" },
+        },
+      },
+      canCreateBranch: { type: "boolean" },
+      canCreateCustomer: { type: "boolean" },
+      canExportData: {
+        type: "boolean",
+        description: "False when exportLocked (≤30 days to expiry or past expiry).",
+      },
+    },
+  },
+
+  SubscriptionPayment: {
+    type: "object",
+    properties: {
+      id: { type: "string" },
+      amount: { type: "number", nullable: true },
+      currency: { type: "string", example: "INR" },
+      status: { $ref: "#/components/schemas/SubscriptionPaymentStatus" },
+      txnReference: { type: "string", nullable: true },
+      method: { type: "string", nullable: true },
+      notes: { type: "string", nullable: true },
+      recordedBy: { type: "string", nullable: true },
+      verifiedAt: { type: "string", format: "date-time", nullable: true },
+      createdAt: { type: "string", format: "date-time" },
+      gatewayProvider: { type: "string", nullable: true, enum: ["MOCK", "RAZORPAY"] },
+      gatewayOrderId: { type: "string", nullable: true },
+    },
+  },
+
+  SubscriptionBill: {
+    type: "object",
+    properties: {
+      id: { type: "string" },
+      billNumber: { type: "string" },
+      planName: { type: "string" },
+      termMonths: { type: "integer" },
+      termLabel: { type: "string" },
+      periodStart: { type: "string", format: "date-time" },
+      periodEnd: { type: "string", format: "date-time" },
+      totalAmount: { type: "number" },
+      amount: { type: "number", nullable: true },
+      currency: { type: "string" },
+      paymentStatus: { $ref: "#/components/schemas/SubscriptionPaymentStatus", nullable: true },
+      txnReference: { type: "string", nullable: true },
+      createdAt: { type: "string", format: "date-time" },
+    },
+  },
+
+  ProvisionOrganizationRequest: {
+    type: "object",
+    required: [
+      "organizationName",
+      "ownerName",
+      "ownerEmail",
+      "ownerPhone",
+      "ownerPassword",
+      "branchName",
+    ],
+    properties: {
+      organizationName: { type: "string", minLength: 1, maxLength: 160, example: "Acme Detailing" },
+      ownerName: { type: "string", minLength: 1, maxLength: 120, example: "Riya Sharma" },
+      ownerEmail: {
+        type: "string",
+        format: "email",
+        maxLength: 200,
+        example: "owner@example.com",
+      },
+      ownerPhone: { type: "string", minLength: 7, maxLength: 20, example: "9876543210" },
+      ownerPassword: {
+        type: "string",
+        format: "password",
+        minLength: 8,
+        maxLength: 200,
+        description: "Must meet strong password policy. Never returned in responses.",
+        example: "Acme#OwnerPass1",
+      },
+      branchName: { type: "string", minLength: 1, maxLength: 120, example: "HQ" },
+      organizationSlug: {
+        type: "string",
+        minLength: 1,
+        maxLength: 64,
+        description: "Optional. Server derives a unique slug from the name when omitted.",
+      },
+      startTrial: {
+        type: "boolean",
+        description: "When true, subscription status is TRIAL with trialEndsAt. Default false → ACTIVE + PENDING payment.",
+      },
+      trialDays: {
+        type: "integer",
+        minimum: 1,
+        maximum: 90,
+        description: "Trial length when startTrial=true. Defaults to SUBSCRIPTION_TRIAL_DAYS or 14.",
+      },
+    },
+    description:
+      "organizationId is NOT accepted from the client. Server generates organization, branch, owner, and subscription ids.",
+  },
+
+  ProvisionOrganizationResponse: {
+    type: "object",
+    description: "Safe provision result — never includes password, hash, JWT, or API keys.",
+    properties: {
+      organization: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "Server-generated" },
+          name: { type: "string" },
+          slug: { type: "string" },
+          isActive: { type: "boolean" },
+        },
+      },
+      branch: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          name: { type: "string" },
+          organizationId: { type: "string", description: "Server-managed" },
+          isActive: { type: "boolean" },
+        },
+      },
+      owner: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          name: { type: "string" },
+          email: { type: "string", format: "email" },
+          phone: { type: "string" },
+          role: { type: "string", enum: ["SUPER_ADMIN"] },
+          organizationId: { type: "string" },
+          branchId: { type: "string" },
+          mustChangePassword: { type: "boolean" },
+        },
+      },
+      subscription: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          organizationId: { type: "string" },
+          planCode: { type: "string", enum: ["STARTER"] },
+          planName: { type: "string" },
+          status: { $ref: "#/components/schemas/SubscriptionStatus" },
+          paymentStatus: { type: "string", enum: ["PENDING"] },
+          termMonths: { type: "integer" },
+          startsAt: { type: "string", format: "date-time" },
+          expiresAt: { type: "string", format: "date-time", nullable: true },
+          trialEndsAt: { type: "string", format: "date-time", nullable: true },
+          limits: { $ref: "#/components/schemas/PlanLimits" },
+        },
+      },
+    },
+  },
+
+  /** Alias for MessagingSettingsPublic (redacted org messaging settings). */
+  MessagingSettings: {
+    allOf: [{ $ref: "#/components/schemas/MessagingSettingsPublic" }],
+    description:
+      "Redacted organization messaging settings (alias of MessagingSettingsPublic). Secrets are never returned.",
+  },
+
+  MessagingSettingsPublic: {
+    type: "object",
+    description:
+      "Redacted messaging settings. Secret values are never returned — only booleans indicating whether they are set.",
+    properties: {
+      twilioAccountSidSet: { type: "boolean" },
+      twilioAuthTokenSet: { type: "boolean" },
+      twilioApiKeySidSet: { type: "boolean" },
+      twilioApiKeySecretSet: { type: "boolean" },
+      twilioFromNumber: { type: "string", nullable: true },
+      twilioWhatsappFrom: { type: "string", nullable: true },
+      twilioToNumberPrefix: { type: "string", nullable: true },
+      resendApiKeySet: { type: "boolean" },
+      mailFrom: { type: "string", nullable: true },
+    },
+  },
+
+  MessagingSettingsResolved: {
+    type: "object",
+    description:
+      "Effective messaging capability after merging org overrides with platform env. Missing org fields fall back to TWILIO_* / RESEND_* / MAIL_FROM.",
+    properties: {
+      source: { type: "string", enum: ["organization", "platform", "mixed"] },
+      smsEnabled: { type: "boolean" },
+      whatsappEnabled: { type: "boolean" },
+      emailEnabled: { type: "boolean" },
+      hasOrgOverrides: { type: "boolean" },
+      twilioFromNumber: { type: "string", nullable: true },
+      twilioWhatsappFrom: { type: "string", nullable: true },
+      mailFrom: { type: "string", nullable: true },
+    },
+  },
+
+  ExportCheckResponse: {
+    type: "object",
+    properties: {
+      canExportData: { type: "boolean" },
+      exportLocked: { type: "boolean" },
+      graceOrLock: { type: "string", enum: ["OK", "EXPORT_LOCKED", "EXPIRED"] },
+      daysRemaining: { type: "integer", nullable: true },
+      expiresAt: { type: "string", format: "date-time", nullable: true },
+      storageKeyPrefix: {
+        type: "string",
+        example: "orgs/org-acme-detailing",
+        description: "Prefix used for new object-storage writes for this organization",
+      },
+    },
   },
 
   OkOk: {

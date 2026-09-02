@@ -1,5 +1,6 @@
 /**
  * Platform control-plane handlers:
+ * - POST /api/platform/organizations/provision — create org + branch + owner + subscription
  * - GET /api/platform/renewals       — cross-org renewal history (from bills)
  * - GET /api/platform/bills          — cross-org subscription bills
  * - GET /api/platform/payments       — cross-org subscription payments
@@ -15,6 +16,7 @@ import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { AppHttpError } from "../../lib/app-http-error.js";
 import { writePlatformAuditLog } from "../../lib/platform-audit.js";
+import { provisionTenant } from "./provision-organization.service.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -365,18 +367,31 @@ export async function suspendOrganization(req: Request, res: Response, next: Nex
       throw new AppHttpError(409, "Subscription is already suspended/cancelled.", "ALREADY_SUSPENDED");
     }
 
-    const before = { status: sub.status };
-    await prisma.organizationSubscription.update({
-      where: { organizationId: orgId },
-      data: { status: "CANCELLED" },
+    const org = await prisma.organization.findUnique({
+      where: { id: orgId },
+      select: { isActive: true },
     });
+    if (!org) throw new AppHttpError(404, "Organization not found.", "NOT_FOUND");
+
+    const before = { status: sub.status, isActive: org.isActive };
+    const now = new Date();
+    await prisma.$transaction([
+      prisma.organizationSubscription.update({
+        where: { organizationId: orgId },
+        data: { status: "CANCELLED" },
+      }),
+      prisma.organization.update({
+        where: { id: orgId },
+        data: { isActive: false, deactivatedAt: now },
+      }),
+    ]);
 
     await writePlatformAuditLog({
       organizationId: orgId,
       actor,
       action: "subscription.suspended",
       before,
-      after: { status: "CANCELLED", reason: body.reason },
+      after: { status: "CANCELLED", isActive: false, reason: body.reason },
     });
 
     res.json({ data: { suspended: true, reason: body.reason }, error: null });
@@ -403,21 +418,70 @@ export async function restoreOrganization(req: Request, res: Response, next: Nex
     });
     if (!sub) throw new AppHttpError(404, "Organization subscription not found.", "NOT_FOUND");
 
-    const before = { status: sub.status };
-    await prisma.organizationSubscription.update({
-      where: { organizationId: orgId },
-      data: { status: "ACTIVE" },
+    const org = await prisma.organization.findUnique({
+      where: { id: orgId },
+      select: { isActive: true },
     });
+    if (!org) throw new AppHttpError(404, "Organization not found.", "NOT_FOUND");
+
+    const before = { status: sub.status, isActive: org.isActive };
+    const now = new Date();
+    await prisma.$transaction([
+      prisma.organizationSubscription.update({
+        where: { organizationId: orgId },
+        data: { status: "ACTIVE" },
+      }),
+      prisma.organization.update({
+        where: { id: orgId },
+        data: { isActive: true, activatedAt: now, deactivatedAt: null },
+      }),
+    ]);
 
     await writePlatformAuditLog({
       organizationId: orgId,
       actor,
       action: "subscription.restored",
       before,
-      after: { status: "ACTIVE", reason: body.reason ?? "Restored by platform admin" },
+      after: {
+        status: "ACTIVE",
+        isActive: true,
+        reason: body.reason ?? "Restored by platform admin",
+      },
     });
 
     res.json({ data: { restored: true }, error: null });
+  } catch (e) {
+    next(e);
+  }
+}
+
+// ─── POST /api/platform/organizations/provision ───────────────────────────────
+
+const provisionSchema = z.object({
+  organizationName: z.string().min(1).max(160),
+  ownerName: z.string().min(1).max(120),
+  ownerEmail: z.string().email().max(200),
+  ownerPhone: z.string().min(7).max(20),
+  ownerPassword: z.string().min(8).max(200),
+  branchName: z.string().min(1).max(120),
+  organizationSlug: z.string().min(1).max(64).optional(),
+  startTrial: z.boolean().optional(),
+  trialDays: z.number().int().min(1).max(90).optional(),
+});
+
+/**
+ * Platform-only: create Organization + HQ Branch + SUPER_ADMIN owner + STARTER subscription
+ * (paymentStatus PENDING; optional TRIAL via startTrial). Does not return passwords/hashes/tokens.
+ */
+export async function postPlatformProvisionOrganization(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const body = provisionSchema.parse(req.body ?? {});
+    const result = await provisionTenant(body, actorFromReq(req));
+    res.status(201).json({ data: result, error: null });
   } catch (e) {
     next(e);
   }

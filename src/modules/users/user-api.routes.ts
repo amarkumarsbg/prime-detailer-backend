@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth, requirePermission, requireAnyPermission } from "../../middleware/auth.js";
+import { requireWorkshopAccess } from "../../middleware/workshop-access.js";
 import {
   getUsers,
   getStaffDirectory,
@@ -12,6 +13,7 @@ import {
 export const userApiRouter = Router();
 
 userApiRouter.use(requireAuth);
+userApiRouter.use(requireWorkshopAccess);
 
 /** Operational directory — no STAFF permission; sensitive fields stripped. */
 userApiRouter.get(

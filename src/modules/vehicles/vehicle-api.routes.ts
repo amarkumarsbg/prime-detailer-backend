@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth, requirePermission } from "../../middleware/auth.js";
+import { requireWorkshopAccess } from "../../middleware/workshop-access.js";
 import {
   getVehicles,
   postVehicle,
@@ -12,6 +13,7 @@ import {
 export const vehicleApiRouter = Router();
 
 vehicleApiRouter.use(requireAuth);
+vehicleApiRouter.use(requireWorkshopAccess);
 vehicleApiRouter.use(requirePermission("VEHICLES"));
 
 vehicleApiRouter.get("/", getVehicles);

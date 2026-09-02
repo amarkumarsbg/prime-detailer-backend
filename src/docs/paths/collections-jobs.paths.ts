@@ -1,10 +1,12 @@
 import {
   bearerSecurity,
   commonErrorResponses,
+  exportIntentParameters,
   jsonBody,
   okResponse,
   permNote,
   ref,
+  workshopAccessNote,
   type OpenApiPaths,
 } from "../helpers.js";
 
@@ -70,6 +72,9 @@ export const collectionPaths: OpenApiPaths = {
       summary: "List collection items (legacy gateway)",
       description:
         `${collectionsLegacyNote} ` +
+        workshopAccessNote(
+          "Export intent (`?export=1`, `?download=true`, `?format=csv`, or `X-Export-Intent: 1`) enforces export lock (403 EXPORT_LOCKED). "
+        ) +
         "Array collections return all items; singletons return the singleton document(s). " +
         "Permissions vary by collection (e.g. jobCards→JOB_CARDS, invoices→BILLING, appointments→APPOINTMENTS, pickupDropRequests→PICKUP_DROP, appSettings→SETTINGS). " +
         "See schemas JobCard, Invoice, Quotation, Appointment/Booking, PickupDropRequest, AppSettings.",
@@ -78,6 +83,7 @@ export const collectionPaths: OpenApiPaths = {
         collectionParam,
         { name: "page", in: "query", schema: { type: "integer", default: 1 } },
         { name: "pageSize", in: "query", schema: { type: "integer", default: 10, enum: [10, 20, 50], maximum: 50 } },
+        ...exportIntentParameters,
       ],
       responses: {
         "200": okResponse({
@@ -89,7 +95,30 @@ export const collectionPaths: OpenApiPaths = {
             },
           },
         }),
-        ...commonErrorResponses(),
+        ...commonErrorResponses({
+          "403": {
+            description:
+              "Workshop access denied (ORG_INACTIVE / SUBSCRIPTION_*) or EXPORT_LOCKED when export intent is set.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    data: { nullable: true },
+                    error: ref("ApiError"),
+                  },
+                },
+                example: {
+                  data: null,
+                  error: {
+                    message: "Data export is locked until you renew your subscription.",
+                    code: "EXPORT_LOCKED",
+                  },
+                },
+              },
+            },
+          },
+        }),
       },
     },
   },
@@ -191,7 +220,7 @@ export const jobCardUploadPaths: OpenApiPaths = {
       tags: ["Job Cards"],
       summary: "List job cards (dedicated alias)",
       description:
-        `${permNote("JOB_CARDS")} Same payload as collections ({ items }). Studio FE primary path (Phase 4).`,
+        `${permNote("JOB_CARDS", workshopAccessNote())} Same payload as collections ({ items }). Studio FE primary path (Phase 4).`,
       security: bearerSecurity,
       parameters: [
         { name: "page", in: "query", schema: { type: "integer", default: 1 } },
@@ -318,7 +347,7 @@ export const invoiceAliasPaths: OpenApiPaths = {
       tags: ["Billing"],
       summary: "List invoices (dedicated alias)",
       description:
-        `${permNote("BILLING")} Same payload as collections ({ items }). Studio FE primary path (Phase 4). ` +
+        `${permNote("BILLING", workshopAccessNote())} Same payload as collections ({ items }). Studio FE primary path (Phase 4). ` +
         "Public view: `GET /api/public/invoices/{id}`.",
       security: bearerSecurity,
       parameters: [
@@ -404,7 +433,7 @@ export const quotationPaths: OpenApiPaths = {
       tags: ["Quotations"],
       summary: "List quotations (dedicated alias)",
       description:
-        `${permNote("QUOTATIONS")} Same payload as collections ({ items }). Studio FE primary path (Phase 4).`,
+        `${permNote("QUOTATIONS", workshopAccessNote())} Same payload as collections ({ items }). Studio FE primary path (Phase 4).`,
       security: bearerSecurity,
       responses: {
         "200": okResponse({

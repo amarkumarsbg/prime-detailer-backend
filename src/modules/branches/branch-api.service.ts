@@ -233,6 +233,9 @@ export async function upsertBranchApi(data: {
 }) {
   const organizationId = await resolveOrganizationIdForBranchCreate(data.organizationId);
   const existing = await prisma.branch.findUnique({ where: { id: data.id } });
+  if (existing && existing.organizationId !== organizationId) {
+    throw AppError.conflict("Branch id already exists in another organization");
+  }
   if (!existing) {
     await assertCanCreateBranch(organizationId);
   }

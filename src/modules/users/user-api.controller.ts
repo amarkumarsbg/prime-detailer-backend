@@ -3,7 +3,6 @@ import { z } from "zod";
 import { UserRole } from "@prisma/client";
 import {
   canAssignUserRole,
-  canChangeRoles,
   canCreateStaffAccounts,
   isStaffManager,
 } from "../../lib/rbac.js";
@@ -30,6 +29,35 @@ function paramId(req: Request): string {
 
 function forbidden(res: Response, message: string) {
   res.status(403).json({ data: null, error: { message } });
+}
+
+async function resolveCallerOrganizationId(req: Request): Promise<string | null> {
+  let organizationId = req.auth?.organizationId;
+  if (!organizationId && req.auth?.id) {
+    const actor = await prisma.user.findUnique({
+      where: { id: req.auth.id },
+      select: { organizationId: true },
+    });
+    organizationId = actor?.organizationId;
+  }
+  return organizationId ?? null;
+}
+
+/** Target user must belong to caller's org (404 hides cross-tenant existence). */
+async function requireOrgUser(
+  res: Response,
+  userId: string,
+  organizationId: string
+): Promise<{ role: UserRole; organizationId: string } | null> {
+  const existing = await prisma.user.findFirst({
+    where: { id: userId, organizationId },
+    select: { role: true, organizationId: true },
+  });
+  if (!existing) {
+    res.status(404).json({ data: null, error: { message: "User not found" } });
+    return null;
+  }
+  return existing;
 }
 
 const roleEnum = z.enum([
@@ -143,14 +171,7 @@ export async function postUser(req: Request, res: Response, next: NextFunction) 
       forbidden(res, "Only Super Admin can assign user roles.");
       return;
     }
-    let organizationId = req.auth.organizationId;
-    if (!organizationId) {
-      const actor = await prisma.user.findUnique({
-        where: { id: req.auth.id },
-        select: { organizationId: true },
-      });
-      organizationId = actor?.organizationId;
-    }
+    const organizationId = await resolveCallerOrganizationId(req);
     if (!organizationId) {
       forbidden(res, "Organization not found on user");
       return;
@@ -198,16 +219,18 @@ export async function deleteUser(req: Request, res: Response, next: NextFunction
       forbidden(res, "You do not have permission to delete users.");
       return;
     }
+    const organizationId = await resolveCallerOrganizationId(req);
+    if (!organizationId) {
+      forbidden(res, "Organization not found on user");
+      return;
+    }
     const id = paramId(req);
     if (id === req.auth.id) {
       forbidden(res, "You cannot delete your own account.");
       return;
     }
-    const existing = await prisma.user.findUnique({ where: { id }, select: { role: true, organizationId: true } });
-    if (!existing) {
-      res.status(404).json({ data: null, error: { message: "User not found" } });
-      return;
-    }
+    const existing = await requireOrgUser(res, id, organizationId);
+    if (!existing) return;
     if (existing.role === "SUPER_ADMIN" && req.auth.role !== "SUPER_ADMIN") {
       forbidden(res, "Only Super Admin can delete a Super Admin account.");
       return;
@@ -231,7 +254,14 @@ export async function putUser(req: Request, res: Response, next: NextFunction) {
       forbidden(res, "You do not have permission to update users.");
       return;
     }
+    const organizationId = await resolveCallerOrganizationId(req);
+    if (!organizationId) {
+      forbidden(res, "Organization not found on user");
+      return;
+    }
     const id = paramId(req);
+    const existing = await requireOrgUser(res, id, organizationId);
+    if (!existing) return;
     const body = updateUserSchema.parse(req.body);
 
     if (body.role !== undefined) {
@@ -239,8 +269,7 @@ export async function putUser(req: Request, res: Response, next: NextFunction) {
         forbidden(res, "You cannot change your own role.");
         return;
       }
-      const existing = await prisma.user.findUnique({ where: { id } });
-      if (existing && existing.role !== body.role) {
+      if (existing.role !== body.role) {
         if (req.auth.role !== "SUPER_ADMIN") {
           forbidden(res, "Only Super Admin can change user roles.");
           return;
@@ -274,14 +303,17 @@ export async function putUserResetPassword(req: Request, res: Response, next: Ne
       return;
     }
 
+    const organizationId = await resolveCallerOrganizationId(req);
+    if (!organizationId) {
+      forbidden(res, "Organization not found on user");
+      return;
+    }
+
     const id = paramId(req);
     const body = resetUserPasswordSchema.parse(req.body);
 
-    const existing = await prisma.user.findUnique({ where: { id }, select: { role: true } });
-    if (!existing) {
-      res.status(404).json({ data: null, error: { message: "User not found" } });
-      return;
-    }
+    const existing = await requireOrgUser(res, id, organizationId);
+    if (!existing) return;
     if (existing.role === "SUPER_ADMIN" && req.auth.role !== "SUPER_ADMIN") {
       forbidden(res, "Only Super Admin can reset a Super Admin password.");
       return;

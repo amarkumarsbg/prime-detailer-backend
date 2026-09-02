@@ -141,9 +141,12 @@ export async function createUserApi(input: {
   if (!branch) {
     throw AppError.validation("Selected branch was not found.");
   }
+  if (branch.organizationId !== input.organizationId) {
+    throw AppError.validation("Selected branch does not belong to your organization.");
+  }
   // MECHANIC accounts don't count toward the billable user-seat limit — skip the gate entirely.
   if ((input.isActive ?? true) && input.role !== "MECHANIC") {
-    await assertCanCreateUser(branch.organizationId);
+    await assertCanCreateUser(input.organizationId);
   }
 
   const useExplicitPassword = input.password !== undefined && input.password.trim() !== "";
@@ -158,7 +161,7 @@ export async function createUserApi(input: {
     phone: input.phone,
     role: input.role,
     branchId: input.branchId,
-    organizationId: branch.organizationId,
+    organizationId: input.organizationId,
     passwordHash,
     mustChangePassword: !useExplicitPassword,
     passwordCreatedBy: input.createdById ?? null,
@@ -237,8 +240,13 @@ export async function updateUserApi(
     if (patch.anniversary !== undefined) data.anniversary = nullIfEmpty(patch.anniversary) ?? null;
     if (patch.branchId !== undefined) {
       const branch = await prisma.branch.findUnique({ where: { id: patch.branchId } });
-      if (!branch) return null;
-      data.organizationId = branch.organizationId;
+      if (!branch) {
+        throw AppError.validation("Selected branch was not found.");
+      }
+      if (branch.organizationId !== current.organizationId) {
+        throw AppError.validation("Selected branch does not belong to this user's organization.");
+      }
+      // Keep user in their tenant; never reassign organizationId from a foreign branch.
     }
 
     const nextActive = patch.isActive ?? current.isActive;
@@ -246,11 +254,7 @@ export async function updateUserApi(
     const effectiveRole = patch.role ?? current.role;
     // MECHANIC accounts don't count toward the billable user-seat limit — skip the gate entirely.
     if (nextActive && wasInactive && effectiveRole !== "MECHANIC") {
-      const nextOrgId =
-        typeof data.organizationId === "string" && data.organizationId.trim()
-          ? data.organizationId
-          : current.organizationId;
-      await assertCanCreateUser(nextOrgId);
+      await assertCanCreateUser(current.organizationId);
     }
 
     if (typeof data.employeeCode === "string" && data.employeeCode) {
@@ -264,6 +268,7 @@ export async function updateUserApi(
     const row = await prisma.user.update({ where: { id }, data });
     return toApiUser(row);
   } catch (e) {
+    if (e instanceof AppError) throw e;
     if (e && typeof e === "object" && "statusCode" in e) throw e;
     return null;
   }

@@ -12,31 +12,35 @@ export type PlanTemplate = {
   limits: PlanLimits;
 };
 
+/**
+ * Default plan caps. `null` = unlimited.
+ * maxCustomers is enforced on customer create (studio + bulk import).
+ */
 export const PLAN_CATALOG: Record<PlanCode, PlanTemplate> = {
   STARTER: {
     planCode: "STARTER",
     planName: "Starter",
-    limits: { maxBranches: 1, maxStaff: 3 },
+    limits: { maxBranches: 1, maxStaff: 3, maxCustomers: 100 },
   },
   GROWTH: {
     planCode: "GROWTH",
     planName: "Growth",
-    limits: { maxBranches: 3, maxStaff: 10 },
+    limits: { maxBranches: 3, maxStaff: 10, maxCustomers: 500 },
   },
   BUSINESS: {
     planCode: "BUSINESS",
     planName: "Business",
-    limits: { maxBranches: 10, maxStaff: 25 },
+    limits: { maxBranches: 10, maxStaff: 25, maxCustomers: 2000 },
   },
   ENTERPRISE: {
     planCode: "ENTERPRISE",
     planName: "Enterprise",
-    limits: { maxBranches: null, maxStaff: null },
+    limits: { maxBranches: null, maxStaff: null, maxCustomers: null },
   },
   CUSTOM: {
     planCode: "CUSTOM",
     planName: "Custom",
-    limits: { maxBranches: 1, maxStaff: 3 },
+    limits: { maxBranches: 1, maxStaff: 3, maxCustomers: 100 },
   },
 };
 
@@ -89,6 +93,12 @@ export function effectiveMaxUsers(
   return limits.maxStaff ?? null;
 }
 
+/** Customer cap from plan limits (no separate override column yet). */
+export function effectiveMaxCustomers(limits: PlanLimits): number | null {
+  if (limits.maxCustomers === undefined) return null;
+  return limits.maxCustomers;
+}
+
 export function isUnlimited(max: number | null): boolean {
   return max === null;
 }
@@ -96,4 +106,10 @@ export function isUnlimited(max: number | null): boolean {
 export function canCreateWithLimit(used: number, max: number | null): boolean {
   if (isUnlimited(max)) return true;
   return used < (max as number);
+}
+
+/** How many more entities can be created under a cap (`null` = unlimited). */
+export function remainingCapacity(used: number, max: number | null): number | null {
+  if (isUnlimited(max)) return null;
+  return Math.max(0, (max as number) - used);
 }

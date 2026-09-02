@@ -12,7 +12,7 @@ export const authPaths: OpenApiPaths = {
     post: {
       tags: ["Auth"],
       summary: "Password login",
-      description: "Public. Returns JWT + user + branch.",
+      description: "Public. Returns JWT + user + branch. Login is allowed for inactive orgs so owners can renew; workshop APIs remain blocked until restored.",
       security: [],
       requestBody: jsonBody({
         type: "object",
@@ -397,7 +397,9 @@ export const publicPaths: OpenApiPaths = {
       tags: ["Public"],
       summary: "Submit public signup lead",
       description:
-        "No auth. Captures inbound signup intent for follow-up by the platform team. Rate-limited by IP.",
+        "No auth. **Lead capture only** — stores inbound signup intent in `publicSignups` AppJsonRow for platform follow-up. " +
+        "Does **not** create an Organization, User, Branch, or Subscription. " +
+        "For self-serve tenant creation use `POST /api/public/register`. Rate-limited by IP.",
       security: [],
       requestBody: jsonBody({
         type: "object",
@@ -430,6 +432,105 @@ export const publicPaths: OpenApiPaths = {
           example: { ok: true, id: "signup-mec90b5p-2kq8x1" },
         }),
         "429": { description: "Too many requests" },
+        ...commonErrorResponses(),
+      },
+    },
+  },
+  "/api/public/register": {
+    post: {
+      tags: ["Public"],
+      summary: "Self-serve register (trial tenant)",
+      description:
+        "No auth. Creates Organization + HQ branch + owner SUPER_ADMIN with STARTER plan on TRIAL. Password is never returned; sign in via /api/auth afterward. Rate-limited by IP. Disable with PUBLIC_SELF_SERVE_SIGNUP=false.",
+      security: [],
+      requestBody: jsonBody({
+        type: "object",
+        required: [
+          "organizationName",
+          "ownerName",
+          "ownerEmail",
+          "ownerPhone",
+          "ownerPassword",
+        ],
+        properties: {
+          organizationName: { type: "string", minLength: 1, maxLength: 160 },
+          ownerName: { type: "string", minLength: 1, maxLength: 120 },
+          ownerEmail: { type: "string", format: "email" },
+          ownerPhone: { type: "string", minLength: 7, maxLength: 20 },
+          ownerPassword: {
+            type: "string",
+            minLength: 8,
+            maxLength: 128,
+            description: "Must meet strong password policy (same as staff create).",
+          },
+          branchName: {
+            type: "string",
+            minLength: 1,
+            maxLength: 120,
+            default: "HQ",
+          },
+          organizationSlug: { type: "string", minLength: 1, maxLength: 48 },
+          source: { type: "string", maxLength: 80 },
+        },
+        example: {
+          organizationName: "Shine Auto Care",
+          ownerName: "Priya Shah",
+          ownerEmail: "priya@shineauto.example",
+          ownerPhone: "+919811122233",
+          ownerPassword: "Shine#TrialPass1",
+          branchName: "HQ",
+          source: "website-register",
+        },
+      }),
+      responses: {
+        "201": okResponse({
+          type: "object",
+          additionalProperties: true,
+          example: {
+            organization: {
+              id: "org-shine-auto-care",
+              name: "Shine Auto Care",
+              slug: "shine-auto-care",
+              isActive: true,
+            },
+            branch: { id: "branch-…", name: "HQ", organizationId: "org-…", isActive: true },
+            owner: {
+              id: "user-…",
+              email: "priya@shineauto.example",
+              role: "SUPER_ADMIN",
+            },
+            subscription: {
+              planCode: "STARTER",
+              status: "TRIAL",
+              paymentStatus: "PENDING",
+              trialEndsAt: "2026-09-16T00:00:00.000Z",
+            },
+            message: "Account created on trial. Sign in with your email and password.",
+          },
+        }),
+        "409": { description: "Duplicate email or slug" },
+        "429": { description: "Too many requests" },
+        ...commonErrorResponses(),
+      },
+    },
+  },
+  "/api/public/billing/webhook": {
+    post: {
+      tags: ["Public"],
+      summary: "SaaS billing gateway webhook",
+      description:
+        "No auth. Raw JSON body + provider signature header. Mock: X-Billing-Signature (HMAC-SHA256 of body with BILLING_WEBHOOK_SECRET). Razorpay: X-Razorpay-Signature. Completes subscription payment via existing verify path. Workshop invoices are not handled here.",
+      security: [],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { type: "object", additionalProperties: true },
+          },
+        },
+      },
+      responses: {
+        "200": okResponse({ type: "object", additionalProperties: true }),
         ...commonErrorResponses(),
       },
     },

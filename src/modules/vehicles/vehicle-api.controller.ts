@@ -98,6 +98,8 @@ export async function getVehicles(req: Request, res: Response, next: NextFunctio
       res.json({ data: { vehicles: [] }, error: null });
       return;
     }
+    const { enforceExportLockIfRequested } = await import("../../lib/export-lock.js");
+    await enforceExportLockIfRequested(scope.organizationId, req);
     const { page, pageSize } = parsePagination(req);
     
     const result = await listVehiclesApi({ organizationId: scope.organizationId, page, pageSize });

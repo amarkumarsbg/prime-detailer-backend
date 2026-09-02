@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth, requirePermission } from "../../middleware/auth.js";
+import { requireWorkshopAccess } from "../../middleware/workshop-access.js";
 import {
   getCustomers,
   getCustomer,
@@ -13,6 +14,7 @@ import {
 export const customerRouter = Router();
 
 customerRouter.use(requireAuth);
+customerRouter.use(requireWorkshopAccess);
 customerRouter.use(requirePermission("CUSTOMERS"));
 
 customerRouter.get("/", getCustomers);

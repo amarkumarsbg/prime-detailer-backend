@@ -31,6 +31,7 @@ enum SubscriptionStatus {
   PAST_DUE
   EXPIRED
   CANCELLED
+  TRIAL
 }
 
 enum SubscriptionPaymentStatus {
@@ -125,6 +126,11 @@ model OrganizationSubscription {
    */
   expiresAt           DateTime?
   /**
+   * When status is TRIAL, workshop access ends at this timestamp (inclusive until past).
+   * Cleared when converting trial → paid/ACTIVE.
+   */
+  trialEndsAt         DateTime?
+  /**
    * Legacy alias mirrored from expiresAt for older clients.
    */
   currentPeriodEnd    DateTime?
@@ -150,12 +156,21 @@ model SubscriptionPayment {
   notes          String?
   recordedBy     String?
   verifiedAt     DateTime?
+  /**
+   * Online SaaS billing gateway (MOCK | RAZORPAY). Null for manual renew/admin mark-paid.
+   */
+  gatewayProvider String?
+  /**
+   * Provider order / checkout id (e.g. Razorpay order_id). Used for webhook correlation.
+   */
+  gatewayOrderId  String?
   createdAt      DateTime                  @default(now())
   updatedAt      DateTime                  @updatedAt
   bill           SubscriptionBill?
 
   @@index([organizationId, createdAt])
   @@index([subscriptionId, createdAt])
+  @@index([gatewayOrderId])
 }
 
 model SubscriptionBill {

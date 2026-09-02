@@ -73,6 +73,10 @@ export async function getCustomers(req: Request, res: Response, next: NextFuncti
       res.json({ data: { customers: [] }, error: null });
       return;
     }
+    const { enforceExportLockIfRequested } = await import(
+      "../../lib/export-lock.js"
+    );
+    await enforceExportLockIfRequested(scope.organizationId, req);
     const { page, pageSize } = parsePagination(req);
     const result = await listCustomers({ organizationId: scope.organizationId, page, pageSize });
     if (Array.isArray(result)) {

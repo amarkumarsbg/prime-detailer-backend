@@ -3,6 +3,7 @@ import path from "node:path";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { env } from "../config/env.js";
 import { avatarExtensionForMime } from "../lib/avatar-mimes.js";
+import { orgObjectKey } from "../lib/org-storage-key.js";
 
 function isS3SigningOrAuthError(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;
@@ -69,16 +70,18 @@ async function writeLocalUpload(relativeSegments: string[], filename: string, bu
 }
 
 /**
- * Profile avatar — stored under `avatars/` (cloud or local).
+ * Profile avatar — `orgs/{orgId}/avatars/…` (cloud or local).
  */
 export async function persistAvatarFile(opts: {
+  organizationId: string;
   buffer: Buffer;
   mimeType: string;
   userId: string;
 }): Promise<string> {
   const ext = avatarExtensionForMime(opts.mimeType);
   const filename = `${opts.userId}-${Date.now()}${ext}`;
-  const key = `avatars/${filename}`;
+  const key = orgObjectKey(opts.organizationId, "avatars", filename);
+  const localSegments = key.split("/").slice(0, -1);
   if (isObjectStorageConfigured()) {
     try {
       return await putPublicObject(key, opts.buffer, opts.mimeType);
@@ -86,13 +89,14 @@ export async function persistAvatarFile(opts: {
       if (!isS3SigningOrAuthError(err)) throw err;
     }
   }
-  return writeLocalUpload(["avatars"], filename, opts.buffer);
+  return writeLocalUpload(localSegments, filename, opts.buffer);
 }
 
 /**
- * Job-card inspection photo — `job-cards/{id}/before|after/`.
+ * Job-card inspection photo — `orgs/{orgId}/job-cards/{id}/before|after/…`.
  */
 export async function persistJobInspectionPhoto(opts: {
+  organizationId: string;
   jobCardId: string;
   kind: "before" | "after";
   /** Stable client-generated id (for filenames). */
@@ -104,30 +108,8 @@ export async function persistJobInspectionPhoto(opts: {
   const safeJobId = opts.jobCardId.replace(/[^\w-]/g, "_").slice(0, 120);
   const filename = `${opts.photoId}-${Date.now()}${ext}`;
   const folder = opts.kind === "before" ? "before" : "after";
-  const segments = ["job-cards", safeJobId, folder];
-  const objectKey = `${segments.join("/")}/${filename}`;
-  if (isObjectStorageConfigured()) {
-    try {
-      return await putPublicObject(objectKey, opts.buffer, opts.mimeType);
-    } catch (err) {
-      if (!isS3SigningOrAuthError(err)) throw err;
-    }
-  }
-  return writeLocalUpload(segments, filename, opts.buffer);
-}
-
-/**
- * Business/company logo for app branding.
- */
-export async function persistBusinessLogoFile(opts: {
-  buffer: Buffer;
-  mimeType: string;
-  uploadedBy: string;
-}): Promise<string> {
-  const ext = avatarExtensionForMime(opts.mimeType);
-  const safeBy = opts.uploadedBy.replace(/[^\w-]/g, "_").slice(0, 80);
-  const filename = `logo-${safeBy}-${Date.now()}${ext}`;
-  const key = `avatars/branding/${filename}`;
+  const key = orgObjectKey(opts.organizationId, "job-cards", safeJobId, folder, filename);
+  const localSegments = key.split("/").slice(0, -1);
   if (isObjectStorageConfigured()) {
     try {
       return await putPublicObject(key, opts.buffer, opts.mimeType);
@@ -135,5 +117,29 @@ export async function persistBusinessLogoFile(opts: {
       if (!isS3SigningOrAuthError(err)) throw err;
     }
   }
-  return writeLocalUpload(["avatars", "branding"], filename, opts.buffer);
+  return writeLocalUpload(localSegments, filename, opts.buffer);
+}
+
+/**
+ * Business/company logo — `orgs/{orgId}/avatars/branding/…`.
+ */
+export async function persistBusinessLogoFile(opts: {
+  organizationId: string;
+  buffer: Buffer;
+  mimeType: string;
+  uploadedBy: string;
+}): Promise<string> {
+  const ext = avatarExtensionForMime(opts.mimeType);
+  const safeBy = opts.uploadedBy.replace(/[^\w-]/g, "_").slice(0, 80);
+  const filename = `logo-${safeBy}-${Date.now()}${ext}`;
+  const key = orgObjectKey(opts.organizationId, "avatars", "branding", filename);
+  const localSegments = key.split("/").slice(0, -1);
+  if (isObjectStorageConfigured()) {
+    try {
+      return await putPublicObject(key, opts.buffer, opts.mimeType);
+    } catch (err) {
+      if (!isS3SigningOrAuthError(err)) throw err;
+    }
+  }
+  return writeLocalUpload(localSegments, filename, opts.buffer);
 }

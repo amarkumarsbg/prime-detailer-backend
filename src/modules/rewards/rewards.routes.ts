@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth, requirePermission } from "../../middleware/auth.js";
+import { requireWorkshopAccess } from "../../middleware/workshop-access.js";
 import {
   getCompanyTargetResultsHandler,
   getStaffIncentiveSummaryHandler,
@@ -9,6 +10,7 @@ import {
 export const rewardsRouter = Router();
 
 rewardsRouter.use(requireAuth);
+rewardsRouter.use(requireWorkshopAccess);
 
 /** GET /api/rewards/settings — read normalized reward settings */
 rewardsRouter.get(
