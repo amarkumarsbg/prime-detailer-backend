@@ -1,5 +1,6 @@
 /**
  * Platform control-plane handlers:
+ * - POST /api/platform/organizations/provision — create org + branch + owner + subscription
  * - GET /api/platform/renewals       — cross-org renewal history (from bills)
  * - GET /api/platform/bills          — cross-org subscription bills
  * - GET /api/platform/payments       — cross-org subscription payments
@@ -15,6 +16,7 @@ import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { AppHttpError } from "../../lib/app-http-error.js";
 import { writePlatformAuditLog } from "../../lib/platform-audit.js";
+import { provisionTenant } from "./provision-organization.service.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -448,6 +450,36 @@ export async function restoreOrganization(req: Request, res: Response, next: Nex
     });
 
     res.json({ data: { restored: true }, error: null });
+  } catch (e) {
+    next(e);
+  }
+}
+
+// ─── POST /api/platform/organizations/provision ───────────────────────────────
+
+const provisionSchema = z.object({
+  organizationName: z.string().min(1).max(160),
+  ownerName: z.string().min(1).max(120),
+  ownerEmail: z.string().email().max(200),
+  ownerPhone: z.string().min(7).max(20),
+  ownerPassword: z.string().min(8).max(200),
+  branchName: z.string().min(1).max(120),
+  organizationSlug: z.string().min(1).max(64).optional(),
+});
+
+/**
+ * Platform-only: create Organization + HQ Branch + SUPER_ADMIN owner + STARTER subscription
+ * (paymentStatus PENDING). Does not return passwords, hashes, tokens, or secrets.
+ */
+export async function postPlatformProvisionOrganization(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const body = provisionSchema.parse(req.body ?? {});
+    const result = await provisionTenant(body, actorFromReq(req));
+    res.status(201).json({ data: result, error: null });
   } catch (e) {
     next(e);
   }

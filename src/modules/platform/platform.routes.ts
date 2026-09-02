@@ -16,11 +16,15 @@ import {
   createPlatformReferral,
   suspendOrganization,
   restoreOrganization,
+  postPlatformProvisionOrganization,
 } from "./platform.controller.js";
 
 export const platformRouter = Router();
 
 platformRouter.use(requirePlatformAuth);
+
+// Provision new tenant (must be before /organizations/:orgId/* for clarity)
+platformRouter.post("/organizations/provision", postPlatformProvisionOrganization);
 
 // Existing org endpoints
 platformRouter.get("/organizations", listPlatformOrganizations);
