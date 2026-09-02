@@ -201,7 +201,7 @@ export const organizationPaths: OpenApiPaths = {
     get: {
       tags: ["Organization"],
       summary: "Studio subscription entitlement",
-      description: "Requires JWT. Returns plan limits/status for the caller's organization (no internal notes).",
+      description: "Requires JWT. Returns plan limits/status for the caller's organization (no internal notes). Includes branches/users/customers usage and canCreateBranch / canCreateCustomer.",
       security: bearerSecurity,
       responses: {
         "200": okResponse(ref("Organization")),

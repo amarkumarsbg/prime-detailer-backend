@@ -155,6 +155,7 @@ export async function createTenantRecordsInTransaction(
   const limits: PlanLimits = {
     maxBranches: starter.limits.maxBranches,
     maxStaff: starter.limits.maxStaff ?? 3,
+    maxCustomers: starter.limits.maxCustomers ?? 100,
   };
   const passwordHash = await bcrypt.hash(input.ownerPassword, 10);
   const startTrial = input.startTrial === true;
@@ -395,6 +396,7 @@ export async function provisionTenant(
       limits: {
         maxBranches: limits.maxBranches,
         maxStaff: limits.maxStaff ?? 3,
+        maxCustomers: limits.maxCustomers ?? null,
       },
     },
   };

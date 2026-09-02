@@ -11,7 +11,9 @@ import {
   PLAN_CATALOG,
   canCreateWithLimit,
   effectiveMaxBranches,
+  effectiveMaxCustomers,
   effectiveMaxUsers,
+  remainingCapacity,
   parsePlanLimits,
   type PlanLimits,
 } from "../../lib/plan-catalog.js";
@@ -44,6 +46,7 @@ export type EntitlementPayload = {
     effectiveMaxBranches: number | null;
     maxUsersOverride: number | null;
     effectiveMaxUsers: number | null;
+    effectiveMaxCustomers: number | null;
     contactUsUrl: string | null;
     contactPhone: string | null;
     upgradeUrl: string | null;
@@ -64,9 +67,17 @@ export type EntitlementPayload = {
   usage: {
     branchesUsed: number;
     usersUsed: number;
+    customersUsed: number;
   };
   canCreateBranch: boolean;
+  canCreateCustomer: boolean;
   canExportData: boolean;
+};
+
+export type OrgUsageCounts = {
+  branchesUsed: number;
+  usersUsed: number;
+  customersUsed: number;
 };
 
 export type SubscriptionPaymentRow = {
@@ -154,19 +165,22 @@ function normalizedLimitsForSubscription(sub: OrganizationSubscription): PlanLim
 export function toEntitlement(
   org: { id: string; name: string; slug: string | null },
   sub: OrganizationSubscription,
-  branchesUsed: number,
-  usersUsed: number,
+  usage: OrgUsageCounts,
   now: Date = new Date()
 ): EntitlementPayload {
+  const { branchesUsed, usersUsed, customersUsed } = usage;
   const limits = normalizedLimitsForSubscription(sub);
   const max = effectiveMaxBranches(limits, sub.maxBranchesOverride);
   const maxUsers = effectiveMaxUsers(limits, sub.maxUsersOverride);
+  const maxCustomers = effectiveMaxCustomers(limits);
   const statusOk = isWorkshopAllowedStatus(sub.status);
   const trialEnded =
     sub.status === "TRIAL" &&
     sub.trialEndsAt != null &&
     sub.trialEndsAt.getTime() < now.getTime();
   const canCreate = statusOk && !trialEnded && canCreateWithLimit(branchesUsed, max);
+  const canCreateCustomer =
+    statusOk && !trialEnded && canCreateWithLimit(customersUsed, maxCustomers);
   const entitlementEnd = resolveEntitlementEndDate(sub);
   const exportLocked = isExportLocked(entitlementEnd, now);
   const termMonths = normalizeTermMonths(sub.termMonths);
@@ -181,6 +195,7 @@ export function toEntitlement(
       effectiveMaxBranches: max,
       maxUsersOverride: sub.maxUsersOverride,
       effectiveMaxUsers: maxUsers,
+      effectiveMaxCustomers: maxCustomers,
       contactUsUrl: sub.contactUsUrl,
       contactPhone: sub.contactPhone,
       upgradeUrl: sub.upgradeUrl,
@@ -196,8 +211,9 @@ export function toEntitlement(
       exportLocked,
       isTrial: sub.status === "TRIAL" && !trialEnded,
     },
-    usage: { branchesUsed, usersUsed },
+    usage: { branchesUsed, usersUsed, customersUsed },
     canCreateBranch: canCreate,
+    canCreateCustomer,
     canExportData: !exportLocked,
   };
 }
@@ -223,12 +239,18 @@ export async function countActiveUsersForOrg(organizationId: string): Promise<nu
   });
 }
 
-async function usageForOrg(organizationId: string) {
-  const [branchesUsed, usersUsed] = await Promise.all([
+/** All customers count toward the plan cap (including inactive). */
+export async function countCustomersForOrg(organizationId: string): Promise<number> {
+  return prisma.customer.count({ where: { organizationId } });
+}
+
+async function usageForOrg(organizationId: string): Promise<OrgUsageCounts> {
+  const [branchesUsed, usersUsed, customersUsed] = await Promise.all([
     countBranchesForOrg(organizationId),
     countActiveUsersForOrg(organizationId),
+    countCustomersForOrg(organizationId),
   ]);
-  return { branchesUsed, usersUsed };
+  return { branchesUsed, usersUsed, customersUsed };
 }
 
 export async function getEntitlementForOrg(organizationId: string): Promise<EntitlementPayload | null> {
@@ -238,7 +260,7 @@ export async function getEntitlementForOrg(organizationId: string): Promise<Enti
   });
   if (!org?.subscription) return null;
   const usage = await usageForOrg(organizationId);
-  return toEntitlement(org, org.subscription, usage.branchesUsed, usage.usersUsed);
+  return toEntitlement(org, org.subscription, usage);
 }
 
 export async function assertCanCreateBranch(organizationId: string): Promise<EntitlementPayload> {
@@ -311,6 +333,94 @@ export async function assertCanCreateUser(organizationId: string): Promise<Entit
   return entitlement;
 }
 
+export async function assertCanCreateCustomer(organizationId: string): Promise<EntitlementPayload> {
+  const entitlement = await getEntitlementForOrg(organizationId);
+  if (!entitlement) {
+    throw new AppHttpError(403, "Organization subscription not found.", "SUBSCRIPTION_MISSING");
+  }
+  if (!entitlement.canCreateCustomer) {
+    const max = entitlement.subscription.effectiveMaxCustomers;
+    const used = entitlement.usage.customersUsed;
+    const statusOk = isWorkshopAllowedStatus(entitlement.subscription.status);
+    const trialBlocked =
+      entitlement.subscription.status === "TRIAL" && !entitlement.subscription.isTrial;
+    if (!statusOk || trialBlocked) {
+      throw new AppHttpError(
+        403,
+        "Subscription is not active. Renew or restore access before adding customers.",
+        entitlement.subscription.status === "EXPIRED"
+          ? "SUBSCRIPTION_EXPIRED"
+          : entitlement.subscription.status === "TRIAL"
+            ? "SUBSCRIPTION_TRIAL_ENDED"
+            : "SUBSCRIPTION_CANCELLED",
+        {
+          planName: entitlement.subscription.planName,
+          status: entitlement.subscription.status,
+          upgradeUrl: entitlement.subscription.upgradeUrl,
+          contactUsUrl: entitlement.subscription.contactUsUrl,
+        }
+      );
+    }
+    const limitLabel = max === null ? "unlimited" : String(max);
+    throw new AppHttpError(
+      403,
+      `Customer limit reached (${used}/${limitLabel}). Upgrade your plan to add more customers.`,
+      "CUSTOMER_LIMIT_REACHED",
+      {
+        planName: entitlement.subscription.planName,
+        maxCustomers: max,
+        currentCustomers: used,
+        upgradeUrl: entitlement.subscription.upgradeUrl,
+        contactUsUrl: entitlement.subscription.contactUsUrl,
+      }
+    );
+  }
+  return entitlement;
+}
+
+/**
+ * Returns how many customers may still be created (null = unlimited).
+ * Throws when subscription is missing / not allowing creates at all.
+ */
+export async function assertCustomerCreateCapacity(
+  organizationId: string,
+  requestedCount: number
+): Promise<{ entitlement: EntitlementPayload; allowedCount: number }> {
+  const entitlement = await getEntitlementForOrg(organizationId);
+  if (!entitlement) {
+    throw new AppHttpError(403, "Organization subscription not found.", "SUBSCRIPTION_MISSING");
+  }
+  const statusOk = isWorkshopAllowedStatus(entitlement.subscription.status);
+  const trialBlocked =
+    entitlement.subscription.status === "TRIAL" && !entitlement.subscription.isTrial;
+  if (!statusOk || trialBlocked) {
+    throw new AppHttpError(
+      403,
+      "Subscription is not active. Renew or restore access before adding customers.",
+      entitlement.subscription.status === "EXPIRED"
+        ? "SUBSCRIPTION_EXPIRED"
+        : entitlement.subscription.status === "TRIAL"
+          ? "SUBSCRIPTION_TRIAL_ENDED"
+          : "SUBSCRIPTION_CANCELLED",
+      {
+        planName: entitlement.subscription.planName,
+        status: entitlement.subscription.status,
+        upgradeUrl: entitlement.subscription.upgradeUrl,
+        contactUsUrl: entitlement.subscription.contactUsUrl,
+      }
+    );
+  }
+
+  const remaining = remainingCapacity(
+    entitlement.usage.customersUsed,
+    entitlement.subscription.effectiveMaxCustomers
+  );
+  if (remaining === null) {
+    return { entitlement, allowedCount: Math.max(0, requestedCount) };
+  }
+  return { entitlement, allowedCount: Math.min(remaining, Math.max(0, requestedCount)) };
+}
+
 export async function listOrganizationsForPlatform() {
   const orgs = await prisma.organization.findMany({
     orderBy: { name: "asc" },
@@ -320,7 +430,7 @@ export async function listOrganizationsForPlatform() {
   for (const org of orgs) {
     if (!org.subscription) continue;
     const usage = await usageForOrg(org.id);
-    results.push(toEntitlement(org, org.subscription, usage.branchesUsed, usage.usersUsed));
+    results.push(toEntitlement(org, org.subscription, usage));
   }
   return results;
 }
@@ -450,7 +560,7 @@ export async function patchOrganizationSubscription(
   });
 
   const usage = await usageForOrg(orgId);
-  return toEntitlement(existing, updated, usage.branchesUsed, usage.usersUsed);
+  return toEntitlement(existing, updated, usage);
 }
 
 function defaultPeriodDates(termMonths: number, now = new Date()) {
@@ -468,6 +578,7 @@ export async function ensureDefaultOrganization(opts?: {
   const branchCount = await prisma.branch.count();
   const maxBranches = opts?.maxBranches ?? Math.max(1, branchCount);
   const maxStaff = PLAN_CATALOG.STARTER.limits.maxStaff ?? 3;
+  const maxCustomers = PLAN_CATALOG.STARTER.limits.maxCustomers ?? 100;
   const termMonths = 12;
   const { startsAt, expiresAt } = defaultPeriodDates(termMonths);
 
@@ -483,7 +594,7 @@ export async function ensureDefaultOrganization(opts?: {
           planCode: "STARTER",
           planName: "Starter",
           status: "ACTIVE",
-          limits: asLimitsJson({ maxBranches, maxStaff }),
+          limits: asLimitsJson({ maxBranches, maxStaff, maxCustomers }),
           termMonths,
           startsAt,
           expiresAt,
@@ -506,7 +617,7 @@ export async function ensureDefaultOrganization(opts?: {
         planCode: "STARTER",
         planName: "Starter",
         status: "ACTIVE",
-        limits: asLimitsJson({ maxBranches, maxStaff }),
+        limits: asLimitsJson({ maxBranches, maxStaff, maxCustomers }),
         termMonths,
         startsAt,
         expiresAt,
@@ -648,7 +759,7 @@ export async function requestSubscriptionRenewal(
 
   const usage = await usageForOrg(organizationId);
   return {
-    entitlement: toEntitlement(org, updated, usage.branchesUsed, usage.usersUsed),
+    entitlement: toEntitlement(org, updated, usage),
     payment: mapPayment(payment),
   };
 }
@@ -882,13 +993,13 @@ export async function verifySubscriptionPayment(
     const updated = await prisma.organizationSubscription.findUniqueOrThrow({
       where: { organizationId: orgId },
     });
-    return toEntitlement(org, updated, usage.branchesUsed, usage.usersUsed);
+    return toEntitlement(org, updated, usage);
   }
 
   /** Idempotent: already verified PAID — do not extend term again. */
   if (payment.status === "PAID") {
     const usage = await usageForOrg(orgId);
-    return toEntitlement(org, sub, usage.branchesUsed, usage.usersUsed);
+    return toEntitlement(org, sub, usage);
   }
 
   const termMonths = normalizeTermMonths(pricing?.termMonths ?? sub.termMonths);
@@ -996,7 +1107,7 @@ export async function verifySubscriptionPayment(
   const updated = await prisma.organizationSubscription.findUniqueOrThrow({
     where: { organizationId: orgId },
   });
-  return toEntitlement(org, updated, usage.branchesUsed, usage.usersUsed);
+  return toEntitlement(org, updated, usage);
 }
 
 /**
@@ -1166,5 +1277,5 @@ export async function convertTrialSubscription(
   const updated = await prisma.organizationSubscription.findUniqueOrThrow({
     where: { organizationId: orgId },
   });
-  return toEntitlement(org, updated, usage.branchesUsed, usage.usersUsed);
+  return toEntitlement(org, updated, usage);
 }

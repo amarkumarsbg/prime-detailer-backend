@@ -1,6 +1,7 @@
 import type { Customer as CustomerRow } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { prisma } from "../../lib/prisma.js";
+import { assertCanCreateCustomer, assertCustomerCreateCapacity } from "../organization/organization-subscription.service.js";
 import { randomBytes } from "node:crypto";
 import { AppError } from "../../lib/app-error.js";
 import { REFERRAL_EXISTING_CUSTOMER_MESSAGE } from "../../lib/referral-eligibility.js";
@@ -118,6 +119,8 @@ export async function createCustomer(data: {
   createdByUserId?: string;
   updatedByUserId?: string;
 }): Promise<{ customer: ReturnType<typeof toApiCustomer>; temporaryPassword?: string }> {
+  await assertCanCreateCustomer(data.organizationId);
+
   const norm = normalizePhone(data.phone);
   if (norm.length === 10) {
     const clash = await prisma.$queryRaw<unknown[]>`
@@ -379,13 +382,14 @@ export type BulkCustomerSkipped = {
   index: number;
   name: string;
   phone: string;
-  reason: "DUPLICATE" | "INVALID" | "DUPLICATE_IN_BATCH";
+  reason: "DUPLICATE" | "INVALID" | "DUPLICATE_IN_BATCH" | "LIMIT_REACHED";
   message: string;
 };
 
 /**
  * Creates many customers in one pass. Skips rows that clash on last-10 phone digits
  * (existing DB or earlier rows in this batch). Does not update existing customers.
+ * Respects plan maxCustomers — excess rows are skipped with LIMIT_REACHED.
  */
 export async function createCustomersBulk(
   organizationId: string,
@@ -394,6 +398,8 @@ export async function createCustomersBulk(
   created: ReturnType<typeof toApiCustomer>[];
   skipped: BulkCustomerSkipped[];
 }> {
+  const { allowedCount } = await assertCustomerCreateCapacity(organizationId, inputs.length);
+
   const existing = await prisma.customer.findMany({
     where: { organizationId },
     select: { phone: true },
@@ -445,6 +451,17 @@ export async function createCustomersBulk(
         message: alreadyInBatch
           ? "Duplicate phone in this import batch"
           : "Phone already in use",
+      });
+      continue;
+    }
+
+    if (toCreate.length >= allowedCount) {
+      skipped.push({
+        index,
+        name,
+        phone,
+        reason: "LIMIT_REACHED",
+        message: "Customer plan limit reached",
       });
       continue;
     }
