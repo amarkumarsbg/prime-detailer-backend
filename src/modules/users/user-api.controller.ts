@@ -248,7 +248,10 @@ export async function putUser(req: Request, res: Response, next: NextFunction) {
       }
     }
 
-    if (body.permissions !== undefined && !canManageUserPermissions(req.auth)) {
+    if (
+      (body.permissions !== undefined || body.accessLevel !== undefined) &&
+      !canManageUserPermissions(req.auth)
+    ) {
       forbidden(res, "You do not have permission to manage user access.");
       return;
     }
@@ -256,6 +259,7 @@ export async function putUser(req: Request, res: Response, next: NextFunction) {
     const user = await updateUserApi(id, {
       ...body,
       role: body.role as UserRole | undefined,
+      accessLevel: body.accessLevel,
     });
     if (!user) {
       res.status(404).json({ data: null, error: { message: "User not found" } });

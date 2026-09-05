@@ -5,7 +5,10 @@ import { AppError } from "../../lib/app-error.js";
 import { toStaffDirectoryEntry } from "../../lib/data-scope.js";
 import { assertCanCreateUser } from "../organization/organization-subscription.service.js";
 import { generateTemporaryPassword } from "../../lib/generate-password.js";
-import type { StaffAccessLevel } from "../../lib/staff-access.js";
+import {
+  permissionsForStaffAccessLevel,
+  type StaffAccessLevel,
+} from "../../lib/staff-access.js";
 import { resolvePermissionsOnCreate } from "../../lib/staff-role-defaults.js";
 
 export { generateTemporaryPassword };
@@ -220,13 +223,26 @@ export async function updateUserApi(
     joiningDate: string | null;
     notes: string | null;
     permissions: string[];
+    /** Same as create — maps With/Without Edit Access onto granular *_EDIT keys. */
+    accessLevel: StaffAccessLevel;
   }>
 ): Promise<ReturnType<typeof toApiUser> | null> {
   try {
     const current = await prisma.user.findUnique({ where: { id } });
     if (!current) return null;
 
-    const data: Prisma.UserUncheckedUpdateInput = { ...patch };
+    // Never pass accessLevel to Prisma — it is not a DB column.
+    const { accessLevel, permissions: patchPermissions, ...rest } = patch;
+    const data: Prisma.UserUncheckedUpdateInput = { ...rest };
+
+    if (accessLevel !== undefined) {
+      // Apply radio choice on update (create already did this via resolvePermissionsOnCreate).
+      const base = patchPermissions ?? current.permissions ?? [];
+      data.permissions = permissionsForStaffAccessLevel(base, accessLevel);
+    } else if (patchPermissions !== undefined) {
+      data.permissions = patchPermissions;
+    }
+
     if (patch.email !== undefined) data.email = patch.email.toLowerCase();
     if (patch.employeeCode !== undefined) data.employeeCode = nullIfEmpty(patch.employeeCode) ?? null;
     if (patch.designation !== undefined) data.designation = nullIfEmpty(patch.designation) ?? null;
