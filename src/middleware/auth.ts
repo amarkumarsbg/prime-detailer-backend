@@ -138,10 +138,21 @@ export function hasPermissionForMethod(auth: AuthUser, permission: string, metho
   const held = auth.permissions ?? [];
   if (held.includes(permission)) return true;
 
-  if (!isGranularPermissionModule(permission)) return false;
-
   const action = actionFromHttpMethod(method);
   if (!action) return false;
 
-  return held.includes(granularPermissionKey(permission, action));
+  if (held.includes(`${permission}_${action}`)) return true;
+
+  if (!isGranularPermissionModule(permission)) {
+    if (
+      held.includes(`${permission}_VIEW`) ||
+      held.includes(`${permission}_CREATE`) ||
+      held.includes(`${permission}_EDIT`) ||
+      held.includes(`${permission}_DELETE`)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }

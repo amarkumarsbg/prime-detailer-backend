@@ -21,7 +21,7 @@ export const BRANCH_MUTATION_ROLES: readonly UserRole[] = [
 ] as const;
 
 /** Payroll / salary JSON collection read/write. */
-export const PAYROLL_ACCESS_ROLES: readonly UserRole[] = ["SUPER_ADMIN", "ADMIN", "MANAGER"] as const;
+export const PAYROLL_ACCESS_ROLES: readonly UserRole[] = ["SUPER_ADMIN", "ADMIN", "MANAGER", "BRANCH_MANAGER"] as const;
 
 export function isStaffManager(role: AppRole): boolean {
   return (STAFF_MANAGEMENT_ROLES as readonly string[]).includes(role);
