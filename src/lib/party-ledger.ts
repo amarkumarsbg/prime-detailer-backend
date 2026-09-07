@@ -111,11 +111,12 @@ export function buildPartyTransactions(
         });
       }
       for (const p of inv.payments) {
-        if (!dateInPreset(p.paidAt, period)) continue;
+        const paidAt = paymentLedgerTimestamp(p.paidAt, inv.createdAt);
+        if (!dateInPreset(paidAt, period)) continue;
         const serial = p.id.replace(/^pay-(?:hitech-)?/, "") || p.id.slice(-6);
         rows.push({
           id: p.id,
-          at: p.paidAt,
+          at: paidAt,
           typeLabel: "Payment In",
           reference: serial,
           amount: p.amount,
@@ -162,6 +163,18 @@ function formatLedgerDate(iso: string): string {
   }).format(new Date(iso));
 }
 
+/**
+ * Authoritative ledger timestamp for a payment.
+ * Prefer stored `paidAt`; fall back to invoice createdAt for legacy rows missing paidAt.
+ */
+export function paymentLedgerTimestamp(
+  paidAt: string | undefined | null,
+  invoiceCreatedAtFallback: string
+): string {
+  if (typeof paidAt === "string" && paidAt.trim()) return paidAt.trim();
+  return invoiceCreatedAtFallback;
+}
+
 function paymentModeLabel(method: string): string {
   return method.replace(/_/g, " ");
 }
@@ -192,30 +205,36 @@ export function buildPartyStatement(
 
   if (party.kind === "customer") {
     for (const inv of invs) {
-      if (!dateInPreset(inv.createdAt, period)) continue;
-      entries.push({
-        at: inv.createdAt,
-        line: {
-          id: `inv-${inv.id}`,
-          date: formatLedgerDate(inv.createdAt),
-          voucher: invoiceSourceLedgerLabel(inv),
-          serialNo: inv.invoiceNumber,
-          paymentMode: "—",
-          debit: inv.grandTotal,
-          dueLabel:
-            invoiceOutstanding(inv) > 0.01 ? `${formatLedgerDate(inv.createdAt)} (unpaid)` : undefined,
-        },
-      });
-      for (const p of inv.payments) {
-        if (!dateInPreset(p.paidAt, period)) continue;
+      // Invoice row keyed by invoice date; payment rows keyed by payment.paidAt independently.
+      if (dateInPreset(inv.createdAt, period)) {
         entries.push({
-          at: p.paidAt,
+          at: inv.createdAt,
+          line: {
+            id: `inv-${inv.id}`,
+            date: formatLedgerDate(inv.createdAt),
+            voucher: invoiceSourceLedgerLabel(inv),
+            serialNo: inv.invoiceNumber,
+            paymentMode: "—",
+            debit: inv.grandTotal,
+            dueLabel:
+              invoiceOutstanding(inv) > 0.01
+                ? `${formatLedgerDate(inv.createdAt)} (unpaid)`
+                : undefined,
+          },
+        });
+      }
+      for (const p of inv.payments) {
+        const paidAt = paymentLedgerTimestamp(p.paidAt, inv.createdAt);
+        if (!dateInPreset(paidAt, period)) continue;
+        entries.push({
+          at: paidAt,
           line: {
             id: `pay-${p.id}`,
-            date: formatLedgerDate(p.paidAt),
+            date: formatLedgerDate(paidAt),
             voucher: "Payment In",
             serialNo: String(p.id).replace(/^pay-(?:hitech-)?/, "") || "—",
-            paymentMode: paymentModeLabel(p.method) + (p.referenceNumber ? ` (${p.referenceNumber})` : ""),
+            paymentMode:
+              paymentModeLabel(p.method) + (p.referenceNumber ? ` (${p.referenceNumber})` : ""),
             credit: p.amount,
           },
         });
@@ -275,8 +294,10 @@ export function buildPartyStatement(
 }
 
 /**
- * Public share/PDF ledger: one row per sales invoice with Credit + Debit on the same line
- * (MyBillBook Party Ledger Report). Does not emit separate Payment In rows.
+ * Public share/PDF ledger: separate Sales Invoice (invoice date) and Payment In
+ * (`payment.paidAt`) rows so payments recorded later appear on the payment date.
+ * Wallet usage is emitted as its own credit using the latest related payment date
+ * (or invoice createdAt when no payment timestamps exist).
  */
 export function buildPublicCustomerStatement(
   party: Party,
@@ -298,38 +319,90 @@ export function buildPublicCustomerStatement(
     isSummary: true,
   });
 
-  const inPeriod = invs
-    .filter((inv) => dateInPreset(inv.createdAt, period))
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  type Entry = {
+    at: string;
+    line: Omit<PartyStatementLine, "balance"> & { debit?: number; credit?: number };
+  };
+  const entries: Entry[] = [];
 
-  for (const inv of inPeriod) {
-    const debit = Math.round(inv.grandTotal * 100) / 100;
-    const collected = invoicePaidTotal(inv);
-    const credit = collected > 0.01 ? collected : 0;
-    const outstanding = invoiceOutstanding(inv);
-    balance = Math.round((balance + debit - credit) * 100) / 100;
+  for (const inv of invs) {
+    if (dateInPreset(inv.createdAt, period)) {
+      const outstanding = invoiceOutstanding(inv);
+      const collected = invoicePaidTotal(inv);
+      entries.push({
+        at: inv.createdAt,
+        line: {
+          id: `inv-${inv.id}`,
+          date: formatLedgerDate(inv.createdAt),
+          voucher:
+            inv.source === "COUNTER_SALE"
+              ? "Counter Sale"
+              : inv.source === "MEMBERSHIP"
+                ? "Membership"
+                : "Sales Invoice",
+          serialNo: inv.invoiceNumber,
+          paymentMode: "—",
+          debit: Math.round(inv.grandTotal * 100) / 100,
+          invoiceDue:
+            collected > 0.01 && outstanding > 0.01 ? outstanding : undefined,
+          dueLabel: publicDueLabel(
+            inv.createdAt,
+            outstanding,
+            collected,
+            party.creditPeriodDays
+          ),
+        },
+      });
+    }
 
-    const methods = [
-      ...new Set(
-        inv.payments
-          .map((p) => paymentModeLabel(p.method))
-          .filter((m) => m && m !== "—")
-      ),
-    ];
-    if ((inv.walletAmountUsed || 0) > 0.01) methods.push("WALLET");
+    for (const p of inv.payments) {
+      const paidAt = paymentLedgerTimestamp(p.paidAt, inv.createdAt);
+      if (!dateInPreset(paidAt, period)) continue;
+      entries.push({
+        at: paidAt,
+        line: {
+          id: `pay-${p.id}`,
+          date: formatLedgerDate(paidAt),
+          voucher: "Payment In",
+          serialNo: String(p.id).replace(/^pay-(?:hitech-)?/, "") || "—",
+          paymentMode:
+            paymentModeLabel(p.method) +
+            (p.referenceNumber ? ` (${p.referenceNumber})` : ""),
+          credit: Math.round(p.amount * 100) / 100,
+        },
+      });
+    }
 
-    lines.push({
-      id: `inv-${inv.id}`,
-      date: formatLedgerDate(inv.createdAt),
-      voucher: inv.source === "COUNTER_SALE" ? "Counter Sale" : inv.source === "MEMBERSHIP" ? "Membership" : "Sales Invoice",
-      serialNo: inv.invoiceNumber,
-      paymentMode: methods[0] ?? "—",
-      credit: credit > 0.01 ? credit : undefined,
-      debit,
-      balance,
-      invoiceDue: credit > 0.01 && outstanding > 0.01 ? outstanding : undefined,
-      dueLabel: publicDueLabel(inv.createdAt, outstanding, credit, party.creditPeriodDays),
-    });
+    const walletUsed = inv.walletAmountUsed || 0;
+    if (walletUsed > 0.01) {
+      const latestPaymentAt = inv.payments
+        .map((p) => paymentLedgerTimestamp(p.paidAt, inv.createdAt))
+        .sort()
+        .at(-1);
+      const walletAt = latestPaymentAt ?? inv.createdAt;
+      if (dateInPreset(walletAt, period)) {
+        entries.push({
+          at: walletAt,
+          line: {
+            id: `wallet-${inv.id}`,
+            date: formatLedgerDate(walletAt),
+            voucher: "Payment In",
+            serialNo: inv.invoiceNumber,
+            paymentMode: "WALLET",
+            credit: Math.round(walletUsed * 100) / 100,
+          },
+        });
+      }
+    }
+  }
+
+  entries.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+
+  for (const { line } of entries) {
+    if (line.debit != null) balance += line.debit;
+    if (line.credit != null) balance -= line.credit;
+    balance = Math.round(balance * 100) / 100;
+    lines.push({ ...line, balance });
   }
 
   lines.push({
@@ -376,7 +449,8 @@ export function buildPartySummary(
     let totalReceived = 0;
     for (const inv of invs) {
       for (const p of inv.payments) {
-        if (dateInPreset(p.paidAt, period)) totalReceived += p.amount;
+        const paidAt = paymentLedgerTimestamp(p.paidAt, inv.createdAt);
+        if (dateInPreset(paidAt, period)) totalReceived += p.amount;
       }
     }
     const overdue = invs

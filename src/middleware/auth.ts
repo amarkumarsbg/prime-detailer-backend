@@ -127,10 +127,30 @@ function actionFromHttpMethod(method: string): GranularAction | null {
 }
 
 /**
+ * Modules whose primary write path is PUT upsert (no dedicated POST create).
+ * Staff with *_CREATE must be able to PUT — otherwise "Without Edit Access"
+ * can open the create UI but gets 403 on save (job cards, bookings, etc.).
+ */
+const UPSERT_VIA_PUT_MODULES = new Set<string>([
+  "JOB_CARDS",
+  "BOOKINGS",
+  "APPOINTMENTS",
+  "QUOTATIONS",
+  "PICKUP_DROP",
+  "BILLING",
+  "MEMBERSHIP",
+  "REFERRALS",
+  "EXPENSES",
+  "INVENTORY",
+  "ATTENDANCE",
+]);
+
+/**
  * Method-aware permission resolver:
  * - SUPER_ADMIN / ADMIN bypass all checks.
  * - Base permission key remains backward-compatible and implies all actions.
  * - Granular modules may use *_CREATE / *_VIEW / *_EDIT / *_DELETE.
+ * - Upsert-via-PUT modules: *_CREATE also authorizes PUT/PATCH (create + workflow writes).
  */
 export function hasPermissionForMethod(auth: AuthUser, permission: string, method: string): boolean {
   if (auth.role === "SUPER_ADMIN" || auth.role === "ADMIN") return true;
@@ -142,6 +162,14 @@ export function hasPermissionForMethod(auth: AuthUser, permission: string, metho
   if (!action) return false;
 
   if (held.includes(`${permission}_${action}`)) return true;
+
+  if (
+    action === "EDIT" &&
+    UPSERT_VIA_PUT_MODULES.has(permission) &&
+    held.includes(`${permission}_CREATE`)
+  ) {
+    return true;
+  }
 
   if (!isGranularPermissionModule(permission)) {
     if (

@@ -42,31 +42,23 @@ function invoice(overrides: Partial<Invoice> & Pick<Invoice, "id" | "grandTotal"
 }
 
 describe("buildPublicCustomerStatement", () => {
-  it("puts invoice amount in Debit and payment in Credit on the same row", () => {
+  it("keeps invoice on invoice date and payment on paidAt for later settlement", () => {
     const invoices: Invoice[] = [
       invoice({
-        id: "a",
-        invoiceNumber: "1216",
-        grandTotal: 400,
-        createdAt: "2026-04-24T10:00:00.000Z",
+        id: "old",
+        invoiceNumber: "INV-2026-0025",
+        grandTotal: 75000,
+        createdAt: "2026-09-01T10:00:00.000Z",
         status: "PAID",
         payments: [
           {
-            id: "p1",
-            invoiceId: "a",
-            amount: 400,
+            id: "pay-today",
+            invoiceId: "old",
+            amount: 75000,
             method: "CASH",
-            paidAt: "2026-04-24T11:00:00.000Z",
+            paidAt: "2026-09-07T12:00:00.000Z",
           },
         ],
-      }),
-      invoice({
-        id: "b",
-        invoiceNumber: "1953",
-        grandTotal: 400,
-        createdAt: "2026-08-16T10:00:00.000Z",
-        status: "ISSUED",
-        payments: [],
       }),
     ];
 
@@ -74,25 +66,23 @@ describe("buildPublicCustomerStatement", () => {
     const sales = lines.filter((l) => !l.isSummary);
 
     assert.equal(sales.length, 2);
-    assert.equal(sales[0]!.debit, 400);
-    assert.equal(sales[0]!.credit, 400);
-    assert.equal(sales[0]!.balance, 0);
-    assert.equal(sales[0]!.dueLabel, "Paid");
+    assert.equal(sales[0]!.voucher, "Sales Invoice");
+    assert.equal(sales[0]!.debit, 75000);
+    assert.equal(sales[0]!.credit, undefined);
+    assert.match(sales[0]!.date, /01/);
+    assert.equal(sales[0]!.balance, 75000);
 
-    assert.equal(sales[1]!.debit, 400);
-    assert.equal(sales[1]!.credit, undefined);
-    assert.equal(sales[1]!.balance, 400);
-    assert.match(sales[1]!.dueLabel ?? "", /Unpaid$/);
+    assert.equal(sales[1]!.voucher, "Payment In");
+    assert.equal(sales[1]!.credit, 75000);
+    assert.equal(sales[1]!.debit, undefined);
+    assert.match(sales[1]!.date, /07/);
+    assert.equal(sales[1]!.balance, 0);
 
     const closing = lines.find((l) => l.id === "closing");
-    assert.equal(closing?.debit, 400);
-    assert.equal(closing?.balance, 400);
-
-    const opening = lines.find((l) => l.id === "opening");
-    assert.equal(opening?.debit, 0);
+    assert.equal(closing?.balance, 0);
   });
 
-  it("exposes invoice-level due on a partially paid invoice without changing running balance", () => {
+  it("supports partial and multiple payments on different dates", () => {
     const invoices: Invoice[] = [
       invoice({
         id: "0341",
@@ -106,21 +96,35 @@ describe("buildPublicCustomerStatement", () => {
             invoiceId: "0341",
             amount: 1000,
             method: "CASH",
-            paidAt: "2026-08-18T12:00:00.000Z",
+            paidAt: "2026-08-20T12:00:00.000Z",
+          },
+          {
+            id: "p-rest",
+            invoiceId: "0341",
+            amount: 710,
+            method: "UPI",
+            paidAt: "2026-08-22T09:00:00.000Z",
           },
         ],
       }),
     ];
     const lines = buildPublicCustomerStatement(party(), invoices, "all");
-    const row = lines.find((l) => l.serialNo === "INV-2026-0341");
-    assert.equal(row?.debit, 1710);
-    assert.equal(row?.credit, 1000);
-    assert.equal(row?.invoiceDue, 710);
-    assert.equal(row?.balance, 710);
-    assert.match(row?.dueLabel ?? "", /Partially Paid/);
+    const sales = lines.filter((l) => !l.isSummary);
+    assert.equal(sales.length, 3);
+
+    const invRow = sales.find((l) => l.serialNo === "INV-2026-0341");
+    assert.equal(invRow?.debit, 1710);
+    assert.equal(invRow?.credit, undefined);
+    assert.equal(invRow?.dueLabel, "Paid");
+
+    const credits = sales.filter((l) => l.voucher === "Payment In");
+    assert.equal(credits.length, 2);
+    assert.equal(credits[0]!.credit, 1000);
+    assert.equal(credits[1]!.credit, 710);
+    assert.equal(sales.at(-1)!.balance, 0);
   });
 
-  it("does not emit separate Payment In rows", () => {
+  it("emits separate Payment In rows dated by paidAt", () => {
     const invoices: Invoice[] = [
       invoice({
         id: "a",
@@ -138,6 +142,30 @@ describe("buildPublicCustomerStatement", () => {
       }),
     ];
     const lines = buildPublicCustomerStatement(party(), invoices, "all");
-    assert.equal(lines.some((l) => l.voucher === "Payment In"), false);
+    assert.equal(lines.some((l) => l.voucher === "Payment In"), true);
+    assert.equal(lines.filter((l) => !l.isSummary).length, 2);
+  });
+
+  it("falls back to invoice createdAt when paidAt is missing", () => {
+    const invoices: Invoice[] = [
+      invoice({
+        id: "legacy",
+        grandTotal: 100,
+        createdAt: "2026-05-01T10:00:00.000Z",
+        payments: [
+          {
+            id: "p-legacy",
+            invoiceId: "legacy",
+            amount: 100,
+            method: "CASH",
+            paidAt: "",
+          } as Invoice["payments"][number],
+        ],
+      }),
+    ];
+    const lines = buildPublicCustomerStatement(party(), invoices, "all");
+    const pay = lines.find((l) => l.voucher === "Payment In");
+    const inv = lines.find((l) => l.voucher === "Sales Invoice");
+    assert.equal(pay?.date, inv?.date);
   });
 });
